@@ -1,0 +1,25 @@
+[project]
+name = "applykit"
+version = "0.1.0"
+requires-python = ">=3.13"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6",
+    "ruff>=0.16",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+preview = true
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RET", "PLR0912", "PLR0913", "PLR1702"]
+ignore = ["E501"]
