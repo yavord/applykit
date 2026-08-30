@@ -192,6 +192,38 @@ class ResumeRepo:
 
             return resume
 
+    def create_from_import(
+        self, name: str, source_path: str, source_kind: str, sections: list[dict]
+    ) -> Resume:
+        """Create a resume with its extracted sections and preserved source, one transaction."""
+        if not name.strip():
+            raise ValueError("resume name must not be empty")
+
+        for sec in sections:
+            _validate_section(sec)
+
+        try:
+            with SessionLocal() as s:
+                resume = Resume(name=name, source_path=source_path, source_kind=source_kind)
+
+                s.add(resume)
+                s.flush()
+
+                for sec in sections:
+                    s.add(
+                        Section(
+                            resume_id=resume.id,
+                            kind=sec["kind"],
+                            position=sec["position"],
+                            content=sec["content"],
+                        )
+                    )
+
+                s.commit()
+                return resume
+        except IntegrityError as e:
+            raise ValueError(f"resume name already exists: {name}") from e
+
     def get_active(self) -> Resume | None:
         with SessionLocal() as s:
             return s.scalar(select(Resume).where(Resume.is_active.is_(True)))

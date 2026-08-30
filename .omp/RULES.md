@@ -10,3 +10,9 @@
 10. Add a small, to the point, comment to explain *what* the block does and *why*. Use examples when possible. Propose ASCII drawings to explain complete systems.
 11. Treat member visibility changes as a breaking design shift. Keep all fields and functions private unless external access is strictly required by the design. Prompt the user for explicit approval before changing any access modifier from private to internal or public.
 12. Program to levels of abstraction. Lower-level mechanics (e.g., raw hardware I/O, sector parsing, direct socket streams) must be encapsulated in a dedicated driver/abstraction layer. Expose clean, high-level APIs to the rest of the application so calling code works with domain concepts, not raw implementation details.
+13. Service-layer naming convention (mandatory): orchestration entrypoints
+    are named <capability>_service.py, one per use case or capability
+    cluster; drivers keep plain capability names (formats.py, parse.py,
+    errors.py); no bare service.py anywhere; package __init__.py is the only
+    public import surface. Canonical decision doc:
+    data/SERVICE_LAYER_CONVENTION.md — read it before adding service code.

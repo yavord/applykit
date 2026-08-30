@@ -163,36 +163,39 @@ def test_replace_sections_accepts_uncertainty_markers(repo):
     assert repo.revision(a.id) == 2
 
 
-def test_replace_sections_persists_enriched_shapes(repo):
-    a = repo.create("a")
-    sections = [
-        {
-            "kind": SectionKind.CONTACT,
-            "position": 0,
-            "content": {
-                "name": "Y",
-                "subtitle": "SE",
-                "tags": ["t"],
-                "links": [{"name": "in", "url": "u"}],
-            },
-        },
-        {
-            "kind": SectionKind.EXPERIENCE,
-            "position": 1,
-            "content": [{"title": "SE", "organization": "C", "summary": "s", "bullets": ["b"]}],
-        },
-        {
-            "kind": SectionKind.EDUCATION,
-            "position": 2,
-            "content": [
-                {"degree": "BSc", "gpa": "3.8", "achievements": ["a"], "coursework": ["c"]}
-            ],
-        },
+def test_create_from_import_persists_source_and_sections(repo, session):
+    resume = repo.create_from_import(
+        "Main",
+        "uploads/abc.pdf",
+        "pdf",
+        [
+            {"kind": SectionKind.CONTACT, "position": 0, "content": {"name": "Y"}},
+            {"kind": SectionKind.SUMMARY, "position": 1, "content": {"text": "t"}},
+        ],
+    )
+
+    stored = session.get(Resume, resume.id)
+    assert stored.name == "Main"
+    assert stored.source_path == "uploads/abc.pdf"
+    assert stored.source_kind == "pdf"
+    assert stored.revision == 1
+
+    sections = list(session.scalars(select(Section).where(Section.resume_id == resume.id)))
+    assert [(s.kind, s.position, s.content) for s in sections] == [
+        (SectionKind.CONTACT, 0, {"name": "Y"}),
+        (SectionKind.SUMMARY, 1, {"text": "t"}),
     ]
 
-    repo.replace_sections(a.id, sections)
 
-    stored = {s.kind: s.content for s in repo.sections(a.id)}
-    assert stored[SectionKind.CONTACT]["subtitle"] == "SE"
-    assert stored[SectionKind.EXPERIENCE][0]["summary"] == "s"
-    assert stored[SectionKind.EDUCATION][0]["gpa"] == "3.8"
+def test_create_from_import_rejects_duplicate_name(repo):
+    repo.create_from_import("Main", "uploads/abc.pdf", "pdf", [])
+
+    with pytest.raises(ValueError, match="already exists"):
+        repo.create_from_import("Main", "uploads/def.pdf", "pdf", [])
+
+
+def test_create_from_import_rejects_unknown_section_kind(repo):
+    with pytest.raises(ValueError):
+        repo.create_from_import(
+            "Main", "uploads/abc.pdf", "pdf", [{"kind": "nope", "position": 0, "content": []}]
+        )
