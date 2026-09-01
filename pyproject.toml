@@ -4,13 +4,17 @@ version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.19.1",
+    "fastapi>=0.141.1",
     "pypdf>=6.16.2",
     "python-docx>=1.2.0",
+    "python-multipart>=0.0.32",
     "sqlalchemy>=2.0.52",
+    "uvicorn>=0.52.4",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pre-commit>=4.6",
     "pytest>=9.1.1",
     "reportlab>=5.0.1",

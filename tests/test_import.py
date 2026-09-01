@@ -264,7 +264,6 @@ def test_name_explicit_override(sample_source):
     assert resume.name == "Custom"
 
 
-
 @pytest.mark.skipif(not REAL_TXT.exists(), reason="real CV text not present")
 def test_import_real_txt_rejected(session):
     with pytest.raises(UnsupportedFormatError):

@@ -296,6 +296,11 @@ class ResumeRepo:
 
             return resume.revision
 
+    def get(self, resume_id: int) -> Resume | None:
+        """One resume row, or None when unknown."""
+        with SessionLocal() as s:
+            return s.get(Resume, resume_id)
+
 
 class JobRepo:
     def upsert(self, data: JobData) -> int:
