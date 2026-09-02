@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useBlocker, useParams } from 'react-router';
 import {
+  type ApiError,
   activateResume,
-  ApiError,
   getResume,
-  saveSections,
   type ResumeSectionOut,
+  saveSections,
 } from '../api/client';
 import SectionEditor from '../components/SectionEditor';
 import { SECTION_LABELS, type SectionKind } from '../resume/sections';
@@ -53,7 +53,9 @@ export default function ResumeEditor() {
     },
   });
 
-  const cancel = () => setDraft(clone(query.data!.sections));
+  const cancel = () => {
+    if (query.data) setDraft(clone(query.data.sections));
+  };
 
   if (query.isPending) {
     return (
@@ -109,7 +111,12 @@ export default function ResumeEditor() {
           </button>
         )}
         <div className="editor-actions">
-          <button type="button" className="btn" disabled={!dirty || save.isPending} onClick={cancel}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!dirty || save.isPending}
+            onClick={cancel}
+          >
             Cancel
           </button>
           <button

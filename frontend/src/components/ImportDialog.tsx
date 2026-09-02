@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { type DragEvent, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ApiError, importResume } from '../api/client';
+import { type ApiError, importResume } from '../api/client';
 
 interface Props {
   onClose: () => void;
@@ -61,9 +61,7 @@ export default function ImportDialog({ onClose }: Props) {
             onDragLeave={onDragLeave}
             onDrop={onDrop}
           >
-            <span className="file-drop-name">
-              {file ? file.name : 'Choose a file'}
-            </span>
+            <span className="file-drop-name">{file ? file.name : 'Choose a file'}</span>
             <input
               id="import-file"
               ref={fileInput}
@@ -100,7 +98,7 @@ export default function ImportDialog({ onClose }: Props) {
             type="button"
             className="btn btn-primary"
             disabled={mutation.isPending || !file}
-            onClick={() => mutation.mutate({ f: file!, n: name })}
+            onClick={() => file && mutation.mutate({ f: file, n: name })}
           >
             {mutation.isPending ? 'Importing…' : 'Import'}
           </button>

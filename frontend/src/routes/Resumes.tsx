@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { activateResume, ApiError, deleteResume, listResumes, type ResumeOut } from '../api/client';
+import {
+  type ApiError,
+  activateResume,
+  deleteResume,
+  listResumes,
+  type ResumeOut,
+} from '../api/client';
 import ConfirmButton from '../components/ConfirmButton';
 import ImportDialog from '../components/ImportDialog';
 

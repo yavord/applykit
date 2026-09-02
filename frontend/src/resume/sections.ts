@@ -87,7 +87,11 @@ export const SECTION_SPECS: Record<SectionKind, FieldSpec> = {
     scalarLists: ['achievements', 'coursework'],
     objectLists: {},
   },
-  projects: { inputs: ['title', 'organization', 'dates', 'url'], scalarLists: ['bullets'], objectLists: {} },
+  projects: {
+    inputs: ['title', 'organization', 'dates', 'url'],
+    scalarLists: ['bullets'],
+    objectLists: {},
+  },
   certifications: { inputs: ['name', 'issuer', 'date', 'url'], scalarLists: [], objectLists: {} },
 };
 
@@ -96,7 +100,15 @@ type Entry = Record<string, unknown>;
 /** Fresh entry for list-kind sections; clone before use, never share refs. */
 export const EMPTY_ENTRY: Record<Exclude<SectionKind, 'contact' | 'summary'>, Entry> = {
   skills: { group: '', skills: [] },
-  experience: { title: '', organization: '', location: '', start: '', end: '', summary: '', bullets: [] },
+  experience: {
+    title: '',
+    organization: '',
+    location: '',
+    start: '',
+    end: '',
+    summary: '',
+    bullets: [],
+  },
   education: {
     degree: '',
     institution: '',

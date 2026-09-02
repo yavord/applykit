@@ -1,18 +1,18 @@
-import { useState, type DragEvent } from 'react';
+import { type DragEvent, useState } from 'react';
 
 import {
+  dropIndex,
   EMPTY_ENTRY,
   FIELD_LABELS,
+  type FieldSpec,
   LONG_FIELDS,
-  dropIndex,
   moveItem,
   removeItem,
+  type Scalar,
   SECTION_LABELS,
   SECTION_SPECS,
-  serializeScalar,
-  type FieldSpec,
-  type Scalar,
   type SectionKind,
+  serializeScalar,
 } from '../resume/sections';
 import FieldInput from './FieldInput';
 
@@ -29,7 +29,9 @@ function scalarPair(value: unknown): Scalar {
 }
 
 function serializeList(list: unknown[], index: number, text: string): Scalar[] {
-  return list.map((item, i) => (i === index ? serializeScalar(item as Scalar, text) : item as Scalar));
+  return list.map((item, i) =>
+    i === index ? serializeScalar(item as Scalar, text) : (item as Scalar),
+  );
 }
 
 function serializeObj(
@@ -96,9 +98,11 @@ function ScalarList({
 
   return (
     <div className="field">
+      {/* biome-ignore lint/a11y/noLabelWithoutControl: Group label for inline list of inputs */}
       {!bare && <label>{label}</label>}
       <div className={`list${long ? '' : ' list-inline'}${bulleted ? ' bullet-list' : ''}`}>
         {list.map((item, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: Reorderable scalars, no stable ids
           <div className={drag.rowClass(i, 'list-item')} key={i} {...drag.rowProps(i)}>
             <FieldInput
               label={bare ? undefined : label}
@@ -227,13 +231,14 @@ function EntryList({
   return (
     <>
       {entries.map((entry, i) => {
+        const long = spec.long;
         const setEntry = (next: Record<string, unknown>) =>
           onChange(entries.map((e, j) => (j === i ? next : e)));
-        const setField = (key: string, value: Scalar) =>
-          setEntry({ ...entry, [key]: value });
+        const setField = (key: string, value: Scalar) => setEntry({ ...entry, [key]: value });
         const onList = (key: string, next: Scalar[]) => setEntry({ ...entry, [key]: next });
 
         return (
+          // biome-ignore lint/suspicious/noArrayIndexKey: Reorderable entries, no stable ids
           <div className={drag.rowClass(i, 'entry')} key={i} {...drag.rowProps(i)}>
             <div className="entry-head">
               <span className="entry-title">{entryTitle(entry, i)}</span>
@@ -245,11 +250,11 @@ function EntryList({
 
             <ScalarFields keys={spec.inputs} values={entry} onField={setField} />
 
-            {spec.long && (
+            {long && (
               <LongField
-                label={FIELD_LABELS[spec.long]}
-                value={scalarPair(entry[spec.long])}
-                onChange={(value) => setField(spec.long!, value)}
+                label={FIELD_LABELS[long]}
+                value={scalarPair(entry[long])}
+                onChange={(value) => setField(long, value)}
               />
             )}
 
@@ -286,9 +291,11 @@ function ObjectList({
 
   return (
     <div className="field">
+      {/* biome-ignore lint/a11y/noLabelWithoutControl: Group label for inline list of inputs */}
       <label>{label}</label>
       <div className="list list-inline">
         {list.map((item, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: Reorderable objects, no stable ids
           <div className={drag.rowClass(i, 'list-item')} key={i} {...drag.rowProps(i)}>
             <div className="fields-grid">
               {objKeys.map((k) => (
@@ -325,35 +332,36 @@ export default function SectionEditor({ kind, content, onChange }: Props) {
 
         <EntryList spec={spec} entries={entries} onChange={onChange} />
 
-        {addBtn(
-          'Add entry',
-          () =>
-            onChange([
-              ...entries,
-              JSON.parse(
-                JSON.stringify(
-                  EMPTY_ENTRY[kind as Exclude<typeof kind, 'contact' | 'summary'>],
-                ),
-              ),
-            ]),
+        {addBtn('Add entry', () =>
+          onChange([
+            ...entries,
+            JSON.parse(
+              JSON.stringify(EMPTY_ENTRY[kind as Exclude<typeof kind, 'contact' | 'summary'>]),
+            ),
+          ]),
         )}
       </div>
     );
   }
 
   const dict = content as Record<string, unknown>;
+  const long = spec.long;
 
   return (
     <div className="card section-card">
       <h2 className="section-title">{SECTION_LABELS[kind]}</h2>
 
-      <ScalarFields keys={spec.inputs} values={dict} onField={(key, value) => onChange({ ...dict, [key]: value })} />
+      <ScalarFields
+        keys={spec.inputs}
+        values={dict}
+        onField={(key, value) => onChange({ ...dict, [key]: value })}
+      />
 
-      {spec.long && (
+      {long && (
         <LongField
-          label={FIELD_LABELS[spec.long]}
-          value={scalarPair(dict[spec.long])}
-          onChange={(value) => onChange({ ...dict, [spec.long!]: value })}
+          label={FIELD_LABELS[long]}
+          value={scalarPair(dict[long])}
+          onChange={(value) => onChange({ ...dict, [long]: value })}
         />
       )}
 

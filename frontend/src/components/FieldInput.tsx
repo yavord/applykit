@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { isMarker, scalarInputValue, type Scalar } from '../resume/sections';
+import { isMarker, type Scalar, scalarInputValue } from '../resume/sections';
 
 interface Props {
   label?: string;

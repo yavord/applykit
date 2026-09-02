@@ -20,7 +20,10 @@ function Layout() {
           <NavLink to="/jobs" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
             Jobs
           </NavLink>
-          <NavLink to="/resumes" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+          <NavLink
+            to="/resumes"
+            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+          >
             Resumes
           </NavLink>
         </nav>

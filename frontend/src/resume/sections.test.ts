@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { insertItem, isMarker, dropIndex, moveItem, removeItem, serializeScalar } from './sections';
+import { dropIndex, insertItem, isMarker, moveItem, removeItem, serializeScalar } from './sections';
 
 const marker = { v: '123 Main St', uncertain: true };
 

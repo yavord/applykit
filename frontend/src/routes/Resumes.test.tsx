@@ -70,9 +70,7 @@ describe('Resumes', () => {
     renderResumes();
 
     expect(await screen.findByText('No resumes yet')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Import your first resume' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import your first resume' })).toBeInTheDocument();
   });
 
   it('stays open and shows the ApiError message on a 409 import', async () => {
@@ -87,9 +85,7 @@ describe('Resumes', () => {
     fireEvent.change(screen.getByLabelText('File'), { target: { files: [file] } });
     fireEvent.click(screen.getByRole('button', { name: 'Import' }));
 
-    expect(
-      await screen.findByText('A resume named "Smoke CV" already exists'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('A resume named "Smoke CV" already exists')).toBeInTheDocument();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
   it('imports a file dropped on the dropzone', async () => {
@@ -133,8 +129,8 @@ describe('Resumes', () => {
       .filter(Boolean);
     expect(headers).toEqual(['Name', 'Last Modified', 'Created', 'Revision']);
 
-    const row = screen.getByText('Active CV').closest('tr')!;
-    const cells = [...row.querySelectorAll('td')].map((td) => td.textContent);
+    const row = screen.getByText('Active CV').closest('tr');
+    const cells = [...(row?.querySelectorAll('td') ?? [])].map((td) => td.textContent);
     expect(cells.slice(1, 4)).toEqual(['Sep 1, 2026', 'Aug 2, 2026', 'Revision 1']);
   });
 

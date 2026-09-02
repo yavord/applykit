@@ -37,11 +37,7 @@ describe('SectionEditor inline lists', () => {
 
   it('keeps bullet points stacked vertically', () => {
     render(
-      <SectionEditor
-        kind="experience"
-        content={[{ bullets: ['A bullet'] }]}
-        onChange={vi.fn()}
-      />,
+      <SectionEditor kind="experience" content={[{ bullets: ['A bullet'] }]} onChange={vi.fn()} />,
     );
 
     const list = screen.getByDisplayValue('A bullet').closest('.list') as HTMLElement;
