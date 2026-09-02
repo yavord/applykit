@@ -1,5 +1,7 @@
 """Pydantic request/response models: the OpenAPI contract surface."""
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -26,6 +28,8 @@ class ResumeOut(BaseModel):
     revision: int
     source_kind: str | None
     sections: list[ResumeSectionOut]
+    created_at: datetime
+    updated_at: datetime
 
 
 def resume_out(resume, sections) -> ResumeOut:
@@ -39,4 +43,6 @@ def resume_out(resume, sections) -> ResumeOut:
         sections=[
             ResumeSectionOut(kind=s.kind, position=s.position, content=s.content) for s in sections
         ],
+        created_at=resume.created_at,
+        updated_at=resume.updated_at,
     )

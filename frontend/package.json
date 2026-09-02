@@ -1,0 +1,35 @@
+{
+  "name": "applykit-frontend",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "predev": "npm run gen:api",
+    "prebuild": "npm run gen:api",
+    "pretest": "npm run gen:api",
+    "test": "vitest run",
+    "gen:api": "openapi-typescript http://127.0.0.1:8000/openapi.json -o src/api/schema.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.102.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-router": "7.18.3"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "16.3.3",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^26.1.0",
+    "openapi-typescript": "7.13.0",
+    "typescript": "^5.9.3",
+    "vite": "8.2.2",
+    "vitest": "4.1.11"
+  }
+}

@@ -153,6 +153,7 @@ def test_list_resumes(client, pdf):
     assert [r["name"] for r in body] == ["Alpha Resume", "Beta Resume"]
     assert all(r["sections"] for r in body)
     assert all(r["sections"][0]["kind"] == "contact" for r in body)
+    assert all("created_at" in r and "updated_at" in r for r in body)
 
 
 def test_get_resume(client, pdf):

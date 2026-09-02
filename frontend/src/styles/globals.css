@@ -1,0 +1,476 @@
+/* E · OMP "Tokyo Night" (duplicate of Consumer, re-themed)
+   Same geometry and component treatment as Consumer; palette is the
+   canonical Tokyo Night scheme used by the user's OMP theme
+   (dark-tokyo-night). Light variant = Tokyo Night "day". Values
+   verbatim from folke/tokyonight.nvim (colors/storm.lua + night.lua
+   for dark; the runtime-resolved palette dump in extras/lua/
+   tokyonight_day.lua for light) unless marked "approx" (tints and
+   hover blends not present in the palette). Default :root is day;
+   :root[data-dark] is night — the shell starts with data-dark set. */
+
+:root {
+  /* surfaces & text — Tokyo Night (day): extras/lua/tokyonight_day.lua */
+  --bg: #e1e2e7;             /* bg */
+  --surface: #d0d5e3;        /* bg_dark — cards, topbar */
+  --text: #3760bf;           /* fg — day's signature blue text */
+  --text-secondary: #6172b0; /* fg_dark */
+  --text-muted: #848cb5;     /* comment */
+  --border: #a8aecb;         /* fg_gutter */
+  --border-strong: #8990b3;  /* dark3 */
+
+  /* status */
+  --accent: #2e7de9;         /* blue */
+  --accent-hover: #1f63c9;   /* approx — darkened blue (not in palette) */
+  --accent-soft: #c4c8da;    /* bg_highlight */
+  --accent-soft-fg: #2e7de9; /* blue */
+  --danger: #f52a65;         /* red */
+  --danger-soft: rgba(245, 42, 101, .10);
+  --success: #587539;        /* green */
+  --success-bg: rgba(88, 117, 57, .12);
+  /* custom vivid amber (Tokyo Night's gold reads dull on light bg) */
+  --uncertain: #b45309;      /* field text — amber-700, readable on tint */
+  --uncertain-bg: rgba(245, 158, 11, .18);   /* amber-500 tint */
+  --uncertain-border: #f59e0b;               /* amber-500 */
+  --uncertain-strong: #fbbf24;               /* badge fill — amber-400 */
+  --uncertain-strong-fg: #7c2d12;            /* badge text — amber-900 */
+
+  /* component-derived */
+  --surface-hover: #c4c8da;  /* bg_highlight — row hover */
+  --ring-soft: rgba(46, 125, 233, .25);
+  --primary-fg: #ffffff;
+  --primary-shadow: 0 4px 14px rgba(46, 125, 233, .3);
+  --shadow-bar: 0 1px 3px rgba(20, 30, 60, .06);
+  --overlay: rgba(20, 25, 45, .35);
+
+  /* geometry — unchanged from Consumer */
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+  --radius-full: 999px;
+
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --shadow-card: 0 1px 4px rgba(20, 30, 60, .08);
+  --shadow-dialog: 0 24px 64px rgba(20, 30, 60, .16);
+}
+/* ── Dark ──────────────────────────────────────────────────
+   :root[data-dark] = Tokyo Night "night" (the user's OMP theme).
+   Values verbatim from colors/storm.lua + night.lua. */
+:root[data-dark] {
+  /* surfaces & text */
+  --bg: #1a1b26;             /* bg */
+  --surface: #16161e;        /* bg_dark — cards, topbar */
+  --text: #c0caf5;           /* fg */
+  --text-secondary: #a9b1d6; /* fg_dark */
+  --text-muted: #565f89;     /* comment */
+  --border: #3b4261;         /* fg_gutter */
+  --border-strong: #414868;  /* terminal_black */
+
+  /* status */
+  --accent: #7aa2f7;         /* blue */
+  --accent-hover: #3d59a1;   /* blue0 */
+  --accent-soft: #292e42;    /* bg_highlight */
+  --accent-soft-fg: #7aa2f7; /* blue */
+  --danger: #f7768e;         /* red */
+  --danger-soft: #33212b;    /* approx — red tint on bg */
+  --success: #9ece6a;        /* green */
+  --success-bg: rgba(158, 206, 106, .13);
+  --uncertain: #e0af68;      /* yellow */
+  --uncertain-bg: rgba(224, 175, 104, .12);
+  --uncertain-border: rgba(224, 175, 104, .55);
+  /* dark keeps the palette's soft amber badge */
+  --uncertain-strong: rgba(224, 175, 104, .15);
+  --uncertain-strong-fg: #e0af68;
+
+  /* component-derived */
+  --surface-hover: #24283b;  /* storm bg — row hover */
+  --ring-soft: rgba(122, 162, 247, .3);
+  --primary-fg: #16161e;
+  --primary-shadow: 0 4px 14px rgba(122, 162, 247, .35);
+  --shadow-bar: 0 1px 3px rgba(0, 0, 0, .45);
+  --overlay: rgba(12, 14, 20, .55);  /* bg_dark1 tint */
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, .45);
+  --shadow-dialog: 0 24px 64px rgba(0, 0, 0, .6);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14.5px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--accent-soft); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+:focus-visible { outline: 3px solid var(--ring-soft); outline-offset: 1px; }
+
+/* ── App chrome ──────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 56px;
+  padding: 0 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-bar);
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+.brand::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.nav { display: flex; gap: 6px; }
+
+.nav-link { padding: 6px 14px; border-radius: var(--radius-full); color: var(--text-secondary); font-size: 13.5px; }
+.nav-link:hover { color: var(--accent); background: var(--accent-soft); }
+.nav-link.active { background: var(--accent-soft); color: var(--accent-soft-fg); font-weight: 600; }
+
+.local {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent-soft-fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+
+/* ── Page ────────────────────────────────────────────────── */
+.page { max-width: 1080px; margin: 0 auto; padding: 28px 32px 80px; }
+
+.page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+
+h1 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+
+/* ── Library table ───────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+
+.table th {
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table td { padding: 13px 16px; border-bottom: 1px solid var(--border); }
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: var(--surface-hover); }
+
+.th-actions, .td-actions { text-align: right; white-space: nowrap; }
+.td-actions .btn + .btn { margin-left: 8px; }
+
+.td-name a { color: var(--text); font-weight: 600; }
+.td-name a:hover { color: var(--accent); text-decoration: none; }
+
+.td-src, .td-rev { font: 12px/1.4 var(--mono); color: var(--text-secondary); }
+.td-sec { color: var(--text-secondary); }
+
+/* ── Badges ──────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+.badge-active { background: var(--accent-soft); color: var(--accent-soft-fg); }
+.badge-uncertain { background: var(--uncertain-strong); color: var(--uncertain-strong-fg); }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: 600 13.5px var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); background: var(--surface-hover); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--primary-fg);
+  box-shadow: var(--primary-shadow);
+}
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--primary-fg); }
+
+.btn-delete { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+.btn-delete:not(:disabled):hover { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+
+.btn-ghost {
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* ── Forms ───────────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+
+input, textarea {
+  box-sizing: border-box;
+  width: 100%;
+  height: 38px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);  /* recessed on --surface cards */
+  color: var(--text);
+  font: 13.5px var(--font);
+}
+input:hover, textarea:hover { border-color: var(--border-strong); }
+input:focus-visible, textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring-soft);
+}
+textarea { height: auto; min-height: 60px; resize: none; field-sizing: content; line-height: 1.45; }
+
+.file-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg);   /* recessed on --surface cards, matches inputs */
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  text-align: center;
+  cursor: pointer;
+}
+.file-drop:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--surface-hover);
+}
+.file-drop.dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.file-drop:focus-within {
+  outline: 3px solid var(--ring-soft);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.file-drop-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.file-drop-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uncertain {
+  border: 1px dashed var(--uncertain-border);
+  border-left: 3px solid var(--uncertain-border);
+  background: var(--uncertain-bg);
+  color: var(--uncertain);
+}
+
+.fields-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px 20px; }
+
+/* ── Editor ──────────────────────────────────────────────── */
+.editor-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 22px; }
+.back { flex-basis: 100%; font-size: 13px; color: var(--text-secondary); }
+.back:hover { color: var(--accent); text-decoration: none; }
+.editor-head h1 { flex: 1; min-width: 200px; }
+.revision { font-size: 12px; color: var(--text-muted); }
+.editor-actions { display: flex; gap: 8px; }
+
+.section-card { padding: 26px; margin-bottom: 28px; }
+.section-title { margin: 0 0 18px; font-size: 15px; font-weight: 700; }
+
+.entry { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; margin-bottom: 16px; }
+.entry-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.entry-title { font-size: 14.5px; font-weight: 600; }
+.entry-actions { display: flex; gap: 4px; }
+/* breathing room between stacked form blocks inside a card or entry */
+.section-card > .fields-grid + *,
+.section-card > .field + .field,
+.entry > .fields-grid + *,
+.entry > .field + .field { margin-top: 18px; }
+
+.icon-btn {
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.icon-btn:hover { background: var(--accent-soft); color: var(--accent); }
+.icon-btn-danger:hover { background: var(--danger-soft); color: var(--danger); }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.list-item { display: flex; align-items: flex-start; gap: 8px; }
+.list-item .field, .list-item .fields-grid { flex: 1 1 0; min-width: 0; }
+.list .fields-grid { grid-template-columns: 1fr; }
+.list-item .badge { margin-left: 0; margin-top: 4px; }
+.item-actions { display: flex; gap: 4px; }
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+}
+.drag-handle:hover { background: var(--accent-soft); color: var(--accent); }
+.drag-handle.dragging { cursor: grabbing; opacity: 0.7; }
+.list-item.dragging, .entry.dragging { opacity: 0.5; }
+/* Sideways lists (skills, tags, links): items flow horizontally and wrap into chips */
+.list-inline { flex-direction: row; flex-wrap: wrap; }
+.list-inline .list-item {
+  align-items: center;
+  flex: 1 1 200px;
+  min-width: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+}
+.list-inline .fields-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.list-inline .item-actions { flex: 0 0 auto; }
+.list-inline > .btn-ghost { flex: 0 0 auto; align-self: center; }
+.list-inline .list-item.drag-before { box-shadow: inset 2px 0 0 var(--accent); }
+.list-inline .list-item.drag-after { box-shadow: inset -2px 0 0 var(--accent); }
+.bullet-list { padding-left: 18px; }
+.bullet-list .list-item::before {
+  content: '•';
+  margin-top: 9px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.entry > .btn-ghost, .section-card > .btn-ghost { margin-top: 12px; }
+
+/* ── Dialog ──────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--overlay);
+  backdrop-filter: blur(3px);
+}
+.dialog {
+  width: min(420px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog);
+}
+.dialog h2 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+}
+
+/* ── Applykit additions ────────────────────────────────────
+   Appended; never modify rules copied from omp.css above. */
+
+.table-wrap { overflow-x: auto; border-radius: var(--radius-lg); }
+
+.td-date { color: var(--text-secondary); }
+
+.error-banner {
+  position: sticky;
+  top: 12px;
+  z-index: 50;
+  margin-bottom: 16px;
+}
+
+.skeleton {
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (max-width: 720px) {
+  .page { padding: 20px 16px 64px; }
+  .editor-head, .page-head { flex-wrap: wrap; gap: 12px; }
+}
