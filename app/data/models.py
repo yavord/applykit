@@ -255,11 +255,13 @@ Index(
 
 
 class Run(Base):
-    """A discovery run; filters is an immutable snapshot taken at start."""
+    """A discovery run; resume_id + resume_rev snapshot of the resume that drove the run."""
 
     __tablename__ = "discovery_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    resume_id: Mapped[int] = mapped_column(ForeignKey("resumes.id", ondelete="CASCADE"))
+    resume_rev: Mapped[int] = mapped_column(Integer)  # resume.revision snapshot at start
     status: Mapped[str] = mapped_column(String)  # one of RunStatus
     filters: Mapped[dict] = mapped_column(JSON)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -292,11 +294,14 @@ class Setting(Base):
 
 
 class FitScore(Base):
-    """Fit estimate cache, one row per job, keyed for staleness by (resume.revision, profile_version)."""
+    """One row per (job, resume); keyed for staleness by (resume.revision, profile_version)."""
 
     __tablename__ = "fit_scores"
 
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True)
+    resume_id: Mapped[int] = mapped_column(
+        ForeignKey("resumes.id", ondelete="CASCADE"), primary_key=True
+    )
     resume_rev: Mapped[int] = mapped_column(Integer)
     profile_rev: Mapped[int] = mapped_column(Integer)
     total: Mapped[int] = mapped_column(Integer)  # 0..100

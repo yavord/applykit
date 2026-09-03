@@ -483,9 +483,19 @@ def _execute_upsert(s: Session, stmt) -> int:
 
 
 class DiscoveryRepo:
-    def create(self, filters: dict) -> int:
+    def create(self, resume_id: int, filters: dict) -> int:
         with SessionLocal() as s:
-            run = Run(status=RunStatus.QUEUED, filters=filters)
+            resume = s.get(Resume, resume_id)
+
+            if resume is None:
+                raise ValueError(f"no resume with id {resume_id}")
+
+            run = Run(
+                status=RunStatus.QUEUED,
+                filters=filters,
+                resume_id=resume_id,
+                resume_rev=resume.revision,
+            )
 
             s.add(run)
             s.commit()
@@ -649,17 +659,24 @@ class SettingsRepo:
 
 
 class FitRepo:
-    """One row per job; staleness is the caller's job (version key comparison)."""
+    """One row per (job, resume); staleness is the caller's job (version key comparison)."""
 
-    def get(self, job_id: int) -> FitScore | None:
+    def get(self, job_id: int, resume_id: int) -> FitScore | None:
         with SessionLocal() as s:
-            return s.get(FitScore, job_id)
+            return s.get(FitScore, (job_id, resume_id))
 
-    def set(
-        self, job_id: int, total: int, components: dict, resume_rev: int, profile_rev: int
+    def set(  # noqa: PLR0913
+        self,
+        job_id: int,
+        resume_id: int,
+        total: int,
+        components: dict,
+        resume_rev: int,
+        profile_rev: int,
     ) -> None:
         stmt = insert(FitScore).values(
             job_id=job_id,
+            resume_id=resume_id,
             total=total,
             components=components,
             resume_rev=resume_rev,
@@ -669,7 +686,7 @@ class FitRepo:
         excluded = stmt.excluded
 
         stmt = stmt.on_conflict_do_update(
-            index_elements=[FitScore.job_id],
+            index_elements=[FitScore.job_id, FitScore.resume_id],
             set_={
                 "total": excluded.total,
                 "components": excluded.components,
