@@ -122,6 +122,17 @@ describe('ResumeEditor', () => {
     await waitFor(() => expect(screen.getByLabelText('Name (unverified)')).toHaveValue('Jane Doe'));
   });
 
+  it('renders export links to the saved resume', async () => {
+    renderEditor();
+
+    await screen.findByLabelText('Name (unverified)');
+
+    const pdf = screen.getByRole('link', { name: 'Export PDF' });
+    const docx = screen.getByRole('link', { name: 'Export DOCX' });
+    expect(pdf).toHaveAttribute('href', '/api/resumes/1/export.pdf');
+    expect(docx).toHaveAttribute('href', '/api/resumes/1/export.docx');
+  });
+
   it('hides Set active and Cancel for an active resume', async () => {
     renderEditor();
 

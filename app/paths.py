@@ -6,7 +6,6 @@ from pathlib import Path
 DATA_DIR_ENV = "APPLYKIT_DATA_DIR"
 
 UPLOADS = "uploads"
-EXPORTS = "exports"
 
 
 def data_root() -> Path:
@@ -26,10 +25,6 @@ def db_path() -> Path:
 
 def uploads_dir() -> Path:
     return _ensure_dir(UPLOADS)
-
-
-def exports_dir() -> Path:
-    return _ensure_dir(EXPORTS)
 
 
 def absolute_path(relative: str) -> Path:

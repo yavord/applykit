@@ -29,3 +29,15 @@ class DuplicateResumeError(ResumeError):
 
 class ActiveResumeError(ResumeError):
     status_code = 409
+
+
+class DocumentNotFoundError(ResumeError):
+    """Unknown document id; 404."""
+
+    status_code = 404
+
+
+class UnprocessableError(ResumeError):
+    """Document exists but cannot be exported as requested; 422."""
+
+    status_code = 422

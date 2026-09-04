@@ -1,8 +1,11 @@
-"""Resume HTTP endpoints: import, list, get, patch sections, activate, delete."""
+"""Resume HTTP endpoints: import, list, get, patch sections, activate, delete, export."""
 
-from fastapi import APIRouter, Form, UploadFile
+from typing import Literal
 
-from app.resumes.resume_service import (
+from fastapi import APIRouter, Form, Response, UploadFile
+
+from app.resumes.services.export_service import MIME, download_name, export_resume
+from app.resumes.services.resume_service import (
     activate_resume,
     delete_resume,
     get_resume,
@@ -56,3 +59,20 @@ def activate_resume_route(resume_id: int) -> ResumeOut:
 def delete_resume_route(resume_id: int) -> None:
     """Delete a resume; 409 when active, 404 unknown id."""
     delete_resume(resume_id)
+
+
+@router.get("/{resume_id}/export.{fmt}", response_class=Response)
+def export_resume_route(resume_id: int, fmt: Literal["pdf", "docx"]) -> Response:
+    """Download the saved resume as PDF or DOCX; 404 unknown id."""
+    resume = get_resume(resume_id)
+    body = export_resume(resume_id, fmt)
+
+    return Response(
+        content=body,
+        media_type=MIME[fmt],
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{download_name(resume.name, fmt, revision=resume.revision)}"'
+            )
+        },
+    )

@@ -11,7 +11,7 @@ from app.resumes.errors import (
     InvalidSectionsError,
     ResumeNotFoundError,
 )
-from app.resumes.import_service import import_resume as _import_resume
+from app.resumes.services.import_service import import_resume as _import_resume
 
 
 def list_resumes() -> list[Resume]:

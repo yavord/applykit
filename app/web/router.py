@@ -2,8 +2,10 @@
 
 from fastapi import APIRouter
 
+from app.web.routes.documents import router as documents_router
 from app.web.routes.resumes import router as resumes_router
 
 api_router = APIRouter(prefix="/api")
 
 api_router.include_router(resumes_router)
+api_router.include_router(documents_router)

@@ -111,6 +111,12 @@ export default function ResumeEditor() {
           </button>
         )}
         <div className="editor-actions">
+          <a className="btn" href={`/api/resumes/${resumeId}/export.pdf`}>
+            Export PDF
+          </a>
+          <a className="btn" href={`/api/resumes/${resumeId}/export.docx`}>
+            Export DOCX
+          </a>
           <button
             type="button"
             className="btn"

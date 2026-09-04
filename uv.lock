@@ -56,6 +56,7 @@ dependencies = [
     { name = "pypdf" },
     { name = "python-docx" },
     { name = "python-multipart" },
+    { name = "reportlab" },
     { name = "sqlalchemy" },
     { name = "uvicorn" },
 ]
@@ -65,7 +66,6 @@ dev = [
     { name = "httpx" },
     { name = "pre-commit" },
     { name = "pytest" },
-    { name = "reportlab" },
     { name = "ruff" },
 ]
 
@@ -76,6 +76,7 @@ requires-dist = [
     { name = "pypdf", specifier = ">=6.16.2" },
     { name = "python-docx", specifier = ">=1.2.0" },
     { name = "python-multipart", specifier = ">=0.0.32" },
+    { name = "reportlab", specifier = ">=5.0.1" },
     { name = "sqlalchemy", specifier = ">=2.0.52" },
     { name = "uvicorn", specifier = ">=0.52.4" },
 ]
@@ -85,7 +86,6 @@ dev = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pre-commit", specifier = ">=4.6" },
     { name = "pytest", specifier = ">=9.1.1" },
-    { name = "reportlab", specifier = ">=5.0.1" },
     { name = "ruff", specifier = ">=0.16" },
 ]
 
