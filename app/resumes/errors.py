@@ -41,3 +41,9 @@ class UnprocessableError(ResumeError):
     """Document exists but cannot be exported as requested; 422."""
 
     status_code = 422
+
+
+class SettingsError(ResumeError):
+    """Invalid export setting; 422."""
+
+    status_code = 422
