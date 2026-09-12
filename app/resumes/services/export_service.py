@@ -15,6 +15,9 @@ from xml.sax.saxutils import escape as xml_escape
 
 import reportlab
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Pt
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -24,6 +27,13 @@ from app.data.models import DocKind, Section, SectionKind
 from app.data.repositories import DocumentRepo
 from app.resumes.errors import DocumentNotFoundError, UnprocessableError
 from app.resumes.services.resume_service import get_resume, get_sections
+from app.resumes.services.settings import (
+    EducationOrder,
+    ExportSettings,
+    FontFamily,
+    HeaderAlign,
+    SkillsLayout,
+)
 
 EXPORT_FORMATS = ("pdf", "docx")
 MIME = {
@@ -47,6 +57,41 @@ pdfmetrics.registerFontFamily(
     "Vera", normal="Vera", bold="Vera-Bold", italic="Vera-Italic", boldItalic="Vera-BoldItalic"
 )
 
+# Work Sans (OFL) is the default export face; the TTF PostScript names are
+# WorkSans-Regular / WorkSans-Bold, referenced directly by the styles.
+_VENDOR_FONT_DIR = Path(__file__).resolve().parent / "fonts"
+_VENDOR_FONT_FILES = (
+    ("WorkSans", "WorkSans-Regular.ttf"),
+    ("WorkSans-Bold", "WorkSans-Bold.ttf"),
+)
+
+for _name, _file in _VENDOR_FONT_FILES:
+    pdfmetrics.registerFont(TTFont(_name, str(_VENDOR_FONT_DIR / _file)))
+
+
+# (regular, bold) reportlab face per family; TNR/Helvetica are base-14 built-ins.
+def _faces(family: FontFamily) -> tuple[str, str]:
+    return {
+        FontFamily.WORK_SANS: ("WorkSans", "WorkSans-Bold"),
+        FontFamily.TIMES_NEW_ROMAN: ("Times-Roman", "Times-Bold"),
+        FontFamily.HELVETICA: ("Helvetica", "Helvetica-Bold"),
+    }[family]
+
+
+# Family name written into DOCX runs; the viewer substitutes when not installed.
+_DOCX_FONTS = {
+    FontFamily.WORK_SANS: "Work Sans",
+    FontFamily.TIMES_NEW_ROMAN: "Times New Roman",
+    FontFamily.HELVETICA: "Helvetica",
+}
+
+_PDF_ALIGN = {HeaderAlign.LEFT: TA_LEFT, HeaderAlign.CENTER: TA_CENTER, HeaderAlign.RIGHT: TA_RIGHT}
+_DOCX_ALIGN = {
+    HeaderAlign.LEFT: WD_ALIGN_PARAGRAPH.LEFT,
+    HeaderAlign.CENTER: WD_ALIGN_PARAGRAPH.CENTER,
+    HeaderAlign.RIGHT: WD_ALIGN_PARAGRAPH.RIGHT,
+}
+
 # Section headings; parity with the editor labels.
 SECTION_LABELS = {
     SectionKind.SUMMARY: "Summary",
@@ -65,6 +110,7 @@ class Block:
     kind: Literal["h1", "h2", "text", "bullet"]
     text: str
     bold: bool = False
+    header: bool = False
 
 
 def _scalar(v) -> str:
@@ -104,17 +150,17 @@ def _layout_contact(content) -> list[Block]:
     blocks: list[Block] = []
 
     if name := _scalar(content.get("name")):
-        blocks.append(Block("h1", name))
+        blocks.append(Block("h1", name, header=True))
     if subtitle := _scalar(content.get("subtitle")):
-        blocks.append(Block("text", subtitle))
+        blocks.append(Block("text", subtitle, header=True))
 
     line = _line(content, ("email", "phone", "location"))
     if line:
-        blocks.append(Block("text", line))
+        blocks.append(Block("text", line, header=True))
 
     tags = [t for t in (_scalar(t) for t in _items(content.get("tags"))) if t]
     if tags:
-        blocks.append(Block("text", ", ".join(tags)))
+        blocks.append(Block("text", ", ".join(tags), header=True))
 
     for link in _items(content.get("links")):
         if not isinstance(link, dict):
@@ -122,9 +168,9 @@ def _layout_contact(content) -> list[Block]:
 
         name, url = _scalar(link.get("name")), _scalar(link.get("url"))
         if name and url:
-            blocks.append(Block("text", f"{name} ({url})"))
+            blocks.append(Block("text", f"{name} ({url})", header=True))
         elif name or url:
-            blocks.append(Block("text", name or url))
+            blocks.append(Block("text", name or url, header=True))
 
     return blocks
 
@@ -140,21 +186,36 @@ def _layout_summary(content) -> list[Block]:
     return [Block("h2", SECTION_LABELS[SectionKind.SUMMARY]), Block("text", text)]
 
 
-def _layout_skills(content) -> list[Block]:
+def _layout_skills(content, layout: SkillsLayout) -> list[Block]:
     blocks: list[Block] = []
 
-    for entry in _items(content):
-        if not isinstance(entry, dict):
-            continue
+    def skills_of(entry) -> list[str]:
+        return [s for s in (_scalar(s) for s in _items(entry.get("skills"))) if s]
 
-        group = _scalar(entry.get("group"))
-        skills = [s for s in (_scalar(s) for s in _items(entry.get("skills"))) if s]
+    if layout is SkillsLayout.GROUPED:
+        for entry in _items(content):
+            if not isinstance(entry, dict):
+                continue
 
-        if not group and not skills:
-            continue
+            group = _scalar(entry.get("group"))
+            skills = skills_of(entry)
 
-        body = f"{group}: {', '.join(skills)}" if group else ", ".join(skills)
-        blocks.append(Block("text", body))
+            if not group and not skills:
+                continue
+
+            body = f"{group}: {', '.join(skills)}" if group else ", ".join(skills)
+            blocks.append(Block("text", body))
+    else:
+        # INLINE and COLUMN drop group labels; both keep every skill in order.
+        skills = [
+            s for entry in _items(content) if isinstance(entry, dict) for s in skills_of(entry)
+        ]
+
+        if layout is SkillsLayout.INLINE:
+            if skills:
+                blocks.append(Block("text", ", ".join(skills)))
+        else:
+            blocks.extend(Block("text", s) for s in skills)
 
     if not blocks:
         return []
@@ -193,14 +254,19 @@ def _layout_experience(content) -> list[Block]:
     return [Block("h2", SECTION_LABELS[SectionKind.EXPERIENCE]), *blocks]
 
 
-def _layout_education(content) -> list[Block]:
+def _layout_education(content, order: EducationOrder) -> list[Block]:
+    keys = (
+        ("degree", "institution")
+        if order is EducationOrder.DEGREE_FIRST
+        else ("institution", "degree")
+    )
     blocks: list[Block] = []
 
     for entry in _items(content):
         if not isinstance(entry, dict):
             continue
 
-        if heading := _heading(entry, ("degree", "institution")):
+        if heading := _heading(entry, keys):
             blocks.append(Block("text", heading, bold=True))
 
         gpa = _scalar(entry.get("gpa"))
@@ -275,9 +341,7 @@ def _layout_certifications(content) -> list[Block]:
 _LAYOUTS = {
     SectionKind.CONTACT: _layout_contact,
     SectionKind.SUMMARY: _layout_summary,
-    SectionKind.SKILLS: _layout_skills,
     SectionKind.EXPERIENCE: _layout_experience,
-    SectionKind.EDUCATION: _layout_education,
     SectionKind.PROJECTS: _layout_projects,
     SectionKind.CERTIFICATIONS: _layout_certifications,
 }
@@ -294,7 +358,7 @@ def _section_fields(sec) -> tuple[str, int, object] | None:
     return sec.get("kind"), sec.get("position"), sec.get("content")
 
 
-def _layout(sections) -> list[Block]:
+def _layout(sections, settings: ExportSettings) -> list[Block]:
     """Normalize section rows/dicts into blocks; unknown kinds and blanks dropped."""
     blocks: list[Block] = []
 
@@ -302,27 +366,79 @@ def _layout(sections) -> list[Block]:
         (f for f in (_section_fields(s) for s in sections) if f is not None),
         key=lambda f: f[1],
     ):
-        if layout := _LAYOUTS.get(kind):
+        if kind == SectionKind.EDUCATION:
+            blocks.extend(_layout_education(content, settings.education_order))
+        elif kind == SectionKind.SKILLS:
+            blocks.extend(_layout_skills(content, settings.skills_layout))
+        elif layout := _LAYOUTS.get(kind):
             blocks.extend(layout(content))
 
     return blocks
 
 
-def _pdf_style(name: str, font: str, size: int, *, space_before: int = 0) -> ParagraphStyle:
+def _pdf_style(  # noqa: PLR0913  (maps 1:1 to ParagraphStyle fields)
+    name, font, size, leading, *, space_before=0, alignment=TA_LEFT
+) -> ParagraphStyle:
     return ParagraphStyle(
-        name, fontName=font, fontSize=size, leading=size + 4, spaceBefore=space_before
+        name,
+        fontName=font,
+        fontSize=size,
+        leading=leading,
+        spaceBefore=space_before,
+        alignment=alignment,
     )
 
 
-def render_pdf(blocks: list[Block], title: str) -> bytes:
-    """Render blocks to PDF bytes (Vera, A4)."""
-    h1 = _pdf_style("h1", "Vera-Bold", 20, space_before=0)
-    h2 = _pdf_style("h2", "Vera-Bold", 12, space_before=10)
-    body = _pdf_style("body", "Vera", 10)
-    bullet = _pdf_style("bullet", "Vera", 10)
+def render_pdf(blocks: list[Block], title: str, settings: ExportSettings) -> bytes:
+    """Render blocks to PDF bytes (drawer settings drive fonts and sizes)."""
+    regular, bold = _faces(settings.font_family)
+    line = settings.line_spacing / 10
+
+    h1 = _pdf_style(
+        "h1",
+        bold,
+        settings.name_size,
+        settings.name_size * line,
+        alignment=_PDF_ALIGN[settings.header_align],
+    )
+    h2 = _pdf_style(
+        "h2",
+        bold,
+        settings.header_size,
+        settings.header_size * line,
+        space_before=settings.section_spacing,
+    )
+    entry = _pdf_style(
+        "entry",
+        bold,
+        settings.subheader_size,
+        settings.subheader_size * line,
+        space_before=settings.entry_spacing,
+    )
+    justify = TA_JUSTIFY if settings.align_justify else TA_LEFT
+    body = _pdf_style(
+        "body", regular, settings.body_size, settings.body_size * line, alignment=justify
+    )
+    contact = _pdf_style(
+        "contact",
+        regular,
+        settings.body_size,
+        settings.body_size * line,
+        alignment=_PDF_ALIGN[settings.header_align],
+    )
+    bullet = _pdf_style(
+        "bullet", regular, settings.body_size, settings.body_size * line, alignment=justify
+    )
 
     buf = BytesIO()
-    doc = SimpleDocTemplate(buf, title=title)
+    doc = SimpleDocTemplate(
+        buf,
+        title=title,
+        leftMargin=settings.margin_side,
+        rightMargin=settings.margin_side,
+        topMargin=settings.margin_top,
+        bottomMargin=settings.margin_bottom,
+    )
 
     story: list = []
     pending_bullets: list[Paragraph] = []
@@ -335,15 +451,14 @@ def render_pdf(blocks: list[Block], title: str) -> bytes:
                     list(pending_bullets),
                     bulletType="bullet",
                     start="•",
-                    bulletFontName="Vera",
-                    bulletFontSize=10,
+                    bulletFontName=regular,
+                    bulletFontSize=settings.body_size,
                 )
             )
             pending_bullets.clear()
 
     for block in blocks:
         text = xml_escape(block.text)
-        styled = f"<b>{text}</b>" if block.bold else text
 
         if block.kind == "h1":
             flush_bullets()
@@ -352,10 +467,16 @@ def render_pdf(blocks: list[Block], title: str) -> bytes:
             flush_bullets()
             story.append(Paragraph(text, h2))
         elif block.kind == "bullet":
-            pending_bullets.append(Paragraph(styled, bullet))
+            pending_bullets.append(Paragraph(text, bullet))
+        elif block.header:
+            flush_bullets()
+            story.append(Paragraph(text, contact))
+        elif block.bold:
+            flush_bullets()
+            story.append(Paragraph(text, entry))
         else:
             flush_bullets()
-            story.append(Paragraph(styled, body))
+            story.append(Paragraph(text, body))
 
     flush_bullets()
     doc.build(story)
@@ -363,21 +484,62 @@ def render_pdf(blocks: list[Block], title: str) -> bytes:
     return buf.getvalue()
 
 
-def render_docx(blocks: list[Block]) -> bytes:
-    """Render blocks to DOCX bytes."""
+def render_docx(blocks: list[Block], settings: ExportSettings) -> bytes:
+    """Render blocks to DOCX bytes (drawer settings drive fonts and sizes)."""
     document = Document()
+    section = document.sections[0]
+    section.top_margin = Pt(settings.margin_top)
+    section.bottom_margin = Pt(settings.margin_bottom)
+    section.left_margin = Pt(settings.margin_side)
+    section.right_margin = Pt(settings.margin_side)
+    family = _DOCX_FONTS[settings.font_family]
+    line = settings.line_spacing / 10
+    justify = WD_ALIGN_PARAGRAPH.JUSTIFY if settings.align_justify else WD_ALIGN_PARAGRAPH.LEFT
 
     for block in blocks:
         if block.kind == "h1":
-            document.add_heading(block.text, level=0)
+            p = document.add_heading(block.text, level=0)
+            run = p.runs[0]
+            run.font.name = family
+            run.font.size = Pt(settings.name_size)
+            run.bold = True
+            p.paragraph_format.alignment = _DOCX_ALIGN[settings.header_align]
         elif block.kind == "h2":
-            document.add_heading(block.text, level=1)
+            p = document.add_heading(block.text, level=1)
+            run = p.runs[0]
+            run.font.name = family
+            run.font.size = Pt(settings.header_size)
+            run.bold = True
+            p.paragraph_format.space_before = Pt(settings.section_spacing)
+            p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
         elif block.kind == "bullet":
-            document.add_paragraph(block.text, style="List Bullet")
+            p = document.add_paragraph(block.text, style="List Bullet")
+            run = p.runs[0]
+            run.font.name = family
+            run.font.size = Pt(settings.body_size)
+            p.paragraph_format.alignment = justify
+        elif block.header:
+            p = document.add_paragraph()
+            run = p.add_run(block.text)
+            run.font.name = family
+            run.font.size = Pt(settings.body_size)
+            p.paragraph_format.alignment = _DOCX_ALIGN[settings.header_align]
+        elif block.bold:
+            p = document.add_paragraph()
+            run = p.add_run(block.text)
+            run.font.name = family
+            run.font.size = Pt(settings.subheader_size)
+            run.bold = True
+            p.paragraph_format.space_before = Pt(settings.entry_spacing)
+            p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
         else:
             p = document.add_paragraph()
             run = p.add_run(block.text)
-            run.bold = block.bold
+            run.font.name = family
+            run.font.size = Pt(settings.body_size)
+            p.paragraph_format.alignment = justify
+
+        p.paragraph_format.line_spacing = line
 
     buf = BytesIO()
     document.save(buf)
@@ -385,23 +547,24 @@ def render_docx(blocks: list[Block]) -> bytes:
     return buf.getvalue()
 
 
-def _render(blocks: list[Block], fmt: str, title: str) -> bytes:
+def _render(blocks: list[Block], fmt: str, title: str, settings: ExportSettings) -> bytes:
     if fmt == "pdf":
-        return render_pdf(blocks, title)
+        return render_pdf(blocks, title, settings)
     if fmt == "docx":
-        return render_docx(blocks)
+        return render_docx(blocks, settings)
 
     raise ValueError(f"unsupported export format: {fmt}")
 
 
-def export_resume(resume_id: int, fmt: str) -> bytes:
+def export_resume(resume_id: int, fmt: str, settings: ExportSettings | None = None) -> bytes:
     """Saved base resume rendered to fmt bytes; 404 unknown id."""
     resume = get_resume(resume_id)
+    settings = settings or ExportSettings()
 
-    return _render(_layout(get_sections(resume_id)), fmt, resume.name)
+    return _render(_layout(get_sections(resume_id), settings), fmt, resume.name, settings)
 
 
-def export_revision(doc_id: int, fmt: str) -> bytes:
+def export_revision(doc_id: int, fmt: str, settings: ExportSettings | None = None) -> bytes:
     """Tailored-resume document rendered to fmt bytes; 404 no doc, 422 wrong kind/shape."""
     doc = DocumentRepo().get(doc_id)
 
@@ -417,7 +580,12 @@ def export_revision(doc_id: int, fmt: str) -> bytes:
 
     resume = get_resume(doc.resume_id)  # docs cascade on resume delete; belt-and-braces 404
 
-    return _render(_layout(sections), fmt, resume.name)
+    return _render(
+        _layout(sections, settings or ExportSettings()),
+        fmt,
+        resume.name,
+        settings or ExportSettings(),
+    )
 
 
 def download_name(

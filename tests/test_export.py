@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from docx import Document
+from docx.shared import Pt
 from fastapi.testclient import TestClient
 from pypdf import PdfReader
 from reportlab.pdfgen import canvas
@@ -12,6 +13,7 @@ from reportlab.pdfgen import canvas
 from app.data.models import DocKind
 from app.data.repositories import DocumentRepo, JobData, JobRepo
 from app.web.main import app
+from tests.test_render import _pdf_fontsizes
 
 SAMPLE_LINES = [
     "Jane Q. Developer",
@@ -251,3 +253,89 @@ def test_unknown_format_422(client):
     resp = client.get("/api/resumes/1/export.txt")
 
     assert resp.status_code == 422
+
+
+def test_export_params_change_output(client, pdf):
+    imported = _import(client, pdf, "Smith Resume")
+    rid = imported["id"]
+
+    default = client.get(f"/api/resumes/{rid}/export.pdf")
+    with_param = client.get(f"/api/resumes/{rid}/export.pdf?name_size=30")
+
+    assert default.status_code == 200
+    assert with_param.status_code == 200
+    assert default.content != with_param.content
+    assert 24.0 in _pdf_fontsizes(default.content)["WorkSans-Bold"]
+    assert 30.0 not in _pdf_fontsizes(default.content)["WorkSans-Bold"]
+    assert 30.0 in _pdf_fontsizes(with_param.content)["WorkSans-Bold"]
+    assert 24.0 not in _pdf_fontsizes(with_param.content)["WorkSans-Bold"]
+
+
+def test_export_bad_params_422(client, pdf):
+    imported = _import(client, pdf, "Smith Resume")
+    rid = imported["id"]
+
+    resp = client.get(f"/api/resumes/{rid}/export.pdf?name_size=99")
+
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert "name_size" in detail
+    assert "out of range" in detail
+
+    resp = client.get(f"/api/resumes/{rid}/export.pdf?bogus=1")
+
+    assert resp.status_code == 422
+    assert "unknown export setting" in resp.json()["detail"]
+
+
+def test_export_docx_params(client, pdf):
+    imported = _import(client, pdf, "Smith Resume")
+    rid = imported["id"]
+
+    default = Document(BytesIO(client.get(f"/api/resumes/{rid}/export.docx").content)).paragraphs[0]
+    assert default.runs[0].font.name == "Work Sans"
+    assert default.runs[0].font.size == Pt(24)
+
+    timed = Document(
+        BytesIO(
+            client.get(
+                f"/api/resumes/{rid}/export.docx?font_family=times_new_roman&name_size=28"
+            ).content
+        )
+    ).paragraphs[0]
+    assert timed.runs[0].font.name == "Times New Roman"
+    assert timed.runs[0].font.size == Pt(28)
+
+
+def test_revision_export_params(client, pdf):
+    imported = _import(client, pdf, "Smith Resume")
+    job_id = JobRepo().upsert(
+        JobData(
+            source="test",
+            title="Engineer",
+            company="Acme",
+            norm_company="acme",
+            norm_title="engineer",
+        )
+    )
+    doc = DocumentRepo().create(
+        imported["id"],
+        job_id,
+        DocKind.TAILORED_RESUME,
+        {
+            "sections": [
+                {
+                    "kind": "experience",
+                    "position": 0,
+                    "content": [{"title": "Rev", "organization": "Co", "bullets": [SENTINEL]}],
+                }
+            ]
+        },
+    )
+
+    default = client.get(f"/api/documents/{doc.id}/export.docx")
+    with_param = client.get(f"/api/documents/{doc.id}/export.docx?font_family=helvetica")
+
+    assert default.status_code == 200
+    assert with_param.status_code == 200
+    assert default.content != with_param.content

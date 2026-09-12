@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Form, Response, UploadFile
+from fastapi import APIRouter, Form, Request, Response, UploadFile
 
 from app.resumes.services.export_service import MIME, download_name, export_resume
 from app.resumes.services.resume_service import (
@@ -14,6 +14,7 @@ from app.resumes.services.resume_service import (
     list_resumes,
     save_sections,
 )
+from app.resumes.services.settings import parse_settings
 from app.web.schemas import ResumeOut, SectionsIn, resume_out
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
@@ -62,10 +63,11 @@ def delete_resume_route(resume_id: int) -> None:
 
 
 @router.get("/{resume_id}/export.{fmt}", response_class=Response)
-def export_resume_route(resume_id: int, fmt: Literal["pdf", "docx"]) -> Response:
-    """Download the saved resume as PDF or DOCX; 404 unknown id."""
+def export_resume_route(request: Request, resume_id: int, fmt: Literal["pdf", "docx"]) -> Response:
+    """Download the saved resume as PDF or DOCX; 404 unknown id, 422 bad settings."""
+    settings = parse_settings(request.query_params)  # SettingsError -> 422
     resume = get_resume(resume_id)
-    body = export_resume(resume_id, fmt)
+    body = export_resume(resume_id, fmt, settings)
 
     return Response(
         content=body,
