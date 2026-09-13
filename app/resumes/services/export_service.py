@@ -7,7 +7,7 @@ identically.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from io import BytesIO
 from pathlib import Path
 from typing import Literal
@@ -17,6 +17,7 @@ import reportlab
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
+from pypdf import PdfReader
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
@@ -25,14 +26,16 @@ from reportlab.platypus import ListFlowable, Paragraph, SimpleDocTemplate
 
 from app.data.models import DocKind, Section, SectionKind
 from app.data.repositories import DocumentRepo
-from app.resumes.errors import DocumentNotFoundError, UnprocessableError
+from app.resumes.errors import DocumentNotFoundError, SettingsError, UnprocessableError
 from app.resumes.services.resume_service import get_resume, get_sections
 from app.resumes.services.settings import (
     EducationOrder,
+    ExportFormat,
     ExportSettings,
     FontFamily,
     HeaderAlign,
     SkillsLayout,
+    bounds,
 )
 
 EXPORT_FORMATS = ("pdf", "docx")
@@ -554,6 +557,68 @@ def _render(blocks: list[Block], fmt: str, title: str, settings: ExportSettings)
         return render_docx(blocks, settings)
 
     raise ValueError(f"unsupported export format: {fmt}")
+
+
+def _require_pdf(settings: ExportSettings) -> None:
+    """Page counting/fitting only make sense for PDF; DOCX layout is viewer-dependent."""
+    if settings.format is ExportFormat.DOCX:
+        raise SettingsError("page count and fit require format=pdf")
+
+
+def _pdf_pages(body: bytes) -> int:
+    """Page count of rendered PDF bytes."""
+    return len(PdfReader(BytesIO(body)).pages)
+
+
+def count_resume_pages(resume_id: int, settings: ExportSettings) -> int:
+    """PDF pages a saved resume occupies under settings; 404 unknown id, 422 docx."""
+    _require_pdf(settings)
+    resume = get_resume(resume_id)
+
+    return _pdf_pages(render_pdf(_layout(get_sections(resume_id), settings), resume.name, settings))
+
+
+@dataclass(frozen=True, slots=True)
+class FitResult:
+    """Smallest settings that fit; pages is the count under .settings."""
+
+    settings: ExportSettings
+    pages: int
+
+
+# Cheapest visual damage first; each field descends one unit to its contract
+# floor, re-rendering until the resume fits on one page.
+_FIT_LADDER: tuple[str, ...] = (
+    "line_spacing",
+    "margin_top",
+    "margin_bottom",
+    "margin_side",
+    "body_size",
+    "subheader_size",
+    "header_size",
+    "name_size",
+)
+
+
+def fit_resume(resume_id: int, settings: ExportSettings) -> FitResult:
+    """Smallest same-or-smaller settings putting a saved resume on one PDF page."""
+    _require_pdf(settings)
+    resume = get_resume(resume_id)
+    blocks = _layout(get_sections(resume_id), settings)  # ladder touches no layout field
+
+    def pages(s: ExportSettings) -> int:
+        return _pdf_pages(render_pdf(blocks, resume.name, s))
+
+    current, count = settings, pages(settings)
+
+    for field in _FIT_LADDER:
+        floor = bounds(field)[0]
+
+        while count > 1 and getattr(current, field) > floor:
+            current = replace(current, **{field: getattr(current, field) - 1})
+            count = pages(current)
+
+    return FitResult(current, count)
 
 
 def export_resume(resume_id: int, fmt: str, settings: ExportSettings | None = None) -> bytes:

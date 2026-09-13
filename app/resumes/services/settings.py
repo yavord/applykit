@@ -71,6 +71,12 @@ _INT_FIELDS: dict[str, tuple[int, int]] = {
     "margin_side": (30, 50),
 }
 
+
+def bounds(key: str) -> tuple[int, int]:
+    """Inclusive (min, max) accepted for an int export setting."""
+    return _INT_FIELDS[key]
+
+
 _ENUM_FIELDS: dict[str, type[StrEnum]] = {
     "format": ExportFormat,
     "font_family": FontFamily,

@@ -4,7 +4,13 @@ from typing import Literal
 
 from fastapi import APIRouter, Form, Request, Response, UploadFile
 
-from app.resumes.services.export_service import MIME, download_name, export_resume
+from app.resumes.services.export_service import (
+    MIME,
+    count_resume_pages,
+    download_name,
+    export_resume,
+    fit_resume,
+)
 from app.resumes.services.resume_service import (
     activate_resume,
     delete_resume,
@@ -14,8 +20,8 @@ from app.resumes.services.resume_service import (
     list_resumes,
     save_sections,
 )
-from app.resumes.services.settings import parse_settings
-from app.web.schemas import ResumeOut, SectionsIn, resume_out
+from app.resumes.services.settings import parse_settings, settings_to_params
+from app.web.schemas import FitOut, PagesOut, ResumeOut, SectionsIn, resume_out
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
 
@@ -78,3 +84,17 @@ def export_resume_route(request: Request, resume_id: int, fmt: Literal["pdf", "d
             )
         },
     )
+
+
+@router.get("/{resume_id}/pages", response_model=PagesOut)
+def count_pages_route(request: Request, resume_id: int) -> PagesOut:
+    """PDF page count for a saved resume under drawer settings; 404/422."""
+    return PagesOut(pages=count_resume_pages(resume_id, parse_settings(request.query_params)))
+
+
+@router.post("/{resume_id}/fit", response_model=FitOut)
+def fit_resume_route(request: Request, resume_id: int) -> FitOut:
+    """Smallest settings fitting a saved resume on one PDF page; 404/422."""
+    result = fit_resume(resume_id, parse_settings(request.query_params))
+
+    return FitOut(pages=result.pages, settings=settings_to_params(result.settings))

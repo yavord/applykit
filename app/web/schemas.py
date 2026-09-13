@@ -32,6 +32,15 @@ class ResumeOut(BaseModel):
     updated_at: datetime
 
 
+class PagesOut(BaseModel):
+    pages: int
+
+
+class FitOut(BaseModel):
+    pages: int
+    settings: dict[str, str]
+
+
 def resume_out(resume, sections) -> ResumeOut:
     """Compose an ORM Resume row + Section rows; content passes through verbatim."""
     return ResumeOut(
