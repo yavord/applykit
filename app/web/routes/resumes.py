@@ -94,7 +94,7 @@ def count_pages_route(request: Request, resume_id: int) -> PagesOut:
 
 @router.post("/{resume_id}/fit", response_model=FitOut)
 def fit_resume_route(request: Request, resume_id: int) -> FitOut:
-    """Smallest settings fitting a saved resume on one PDF page; 404/422."""
+    """One-page settings: shrink on overflow, nudge spacing, body, and frame when it fits; 404/422."""
     result = fit_resume(resume_id, parse_settings(request.query_params))
 
     return FitOut(pages=result.pages, settings=settings_to_params(result.settings))

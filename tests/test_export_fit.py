@@ -1,4 +1,4 @@
-"""Fit API tests: shrink settings until a saved resume fits one PDF page."""
+"""Fit API tests: one-page settings — shrink on overflow, nudge spacing and frame when it fits."""
 
 from pathlib import Path
 
@@ -10,7 +10,7 @@ from app.web.main import app
 from tests.test_export import SAMPLE_LINES, write_pdf
 from tests.test_pages import DENSE_ENTRY, _extend_experience, _import, _pages
 
-# Ladder fields and their defaults; fit only shrinks them.
+# Ladder fields and their defaults; fit shrinks them on overflow.
 LADDER_DEFAULTS = {
     "line_spacing": 11,
     "margin_top": 36,
@@ -79,12 +79,74 @@ def test_fit_long_resume_one_page(client, pdf):
         assert result["settings"][field] == defaults[field]
 
 
-def test_fit_idempotent_on_single_page(client, pdf):
+def test_fit_nudges_spacing_and_opens_frame_on_short_resume(client, pdf):
     imported = _import(client, pdf, "Smith Resume")
 
     result = _fit(client, imported["id"])
 
-    assert result == {"pages": 1, "settings": settings_to_params(ExportSettings())}
+    assert result == {
+        "pages": 1,
+        "settings": settings_to_params(
+            ExportSettings(
+                entry_spacing=5,
+                section_spacing=6,
+                line_spacing=13,
+                body_size=11,
+                margin_top=10,
+                margin_bottom=10,
+                margin_side=30,
+            )
+        ),
+    }
+
+
+def test_fit_noop_at_bounds(client, pdf):
+    imported = _import(client, pdf, "Smith Resume")
+    resume_id = imported["id"]
+
+    query = (
+        "?entry_spacing=10&section_spacing=10&line_spacing=15&body_size=14"
+        "&margin_top=10&margin_bottom=10&margin_side=30"
+    )
+
+    result = _fit(client, resume_id, query)
+
+    assert result == {
+        "pages": 1,
+        "settings": settings_to_params(
+            ExportSettings(
+                entry_spacing=10,
+                section_spacing=10,
+                line_spacing=15,
+                body_size=14,
+                margin_top=10,
+                margin_bottom=10,
+                margin_side=30,
+            )
+        ),
+    }
+
+
+def test_fit_bump_never_spills_to_two_pages(client, pdf):
+    # 9 DENSE_ENTRY rows sit at the page edge: floored margins fit at
+    # line_spacing 11 and overflow at 12, so the +2 spike (13, then 12)
+    # must revert; entry/section absorb the full +2 step.
+    imported = _import(client, pdf, "Smith Resume")
+    resume_id = imported["id"]
+
+    _extend_experience(client, resume_id, [DENSE_ENTRY] * 9)
+
+    result = _fit(
+        client,
+        resume_id,
+        "?line_spacing=11&margin_top=10&margin_bottom=10&margin_side=30",
+    )
+
+    assert result["pages"] == 1
+    assert result["settings"]["entry_spacing"] == "5"
+    assert result["settings"]["section_spacing"] == "6"
+    assert result["settings"]["line_spacing"] == "11"
+    assert result["settings"]["body_size"] == "10"
 
 
 def test_fit_floors_on_monster(client, pdf):

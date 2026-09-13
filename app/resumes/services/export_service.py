@@ -689,7 +689,7 @@ def count_resume_pages(resume_id: int, settings: ExportSettings) -> int:
 
 @dataclass(frozen=True, slots=True)
 class FitResult:
-    """Smallest settings that fit; pages is the count under .settings."""
+    """Settings keeping the resume on one PDF page; pages is the count under .settings."""
 
     settings: ExportSettings
     pages: int
@@ -708,9 +708,22 @@ _FIT_LADDER: tuple[str, ...] = (
     "name_size",
 )
 
+# Under-full nudges in application order: the body inches first and takes the
+# first claim on room (it fills the page), spacing strides after. Other sizes
+# are untouched; bounds are checked per knob at apply time.
+_FILL_BUMPS: tuple[tuple[str, int], ...] = (
+    ("body_size", 1),
+    ("entry_spacing", 2),
+    ("section_spacing", 2),
+    ("line_spacing", 2),
+)
+
+# The frame opens one-way; smaller margins only shorten lines, never overflow.
+_FILL_MARGINS: tuple[str, ...] = ("margin_top", "margin_bottom", "margin_side")
+
 
 def fit_resume(resume_id: int, settings: ExportSettings) -> FitResult:
-    """Smallest same-or-smaller settings putting a saved resume on one PDF page."""
+    """One-page settings: shrink on overflow, nudge spacing, body, and frame when it fits."""
     _require_pdf(settings)
     resume = get_resume(resume_id)
     blocks = _layout(get_sections(resume_id), settings)  # ladder touches no layout field
@@ -727,7 +740,29 @@ def fit_resume(resume_id: int, settings: ExportSettings) -> FitResult:
             current = replace(current, **{field: getattr(current, field) - 1})
             count = pages(current)
 
-    return FitResult(current, count)
+    if count > 1:
+        return FitResult(current, count)
+
+    # Fits with room: open the frame first (narrower margins only shorten lines,
+    # so candidates are judged in the roomy frame), then nudge each knob up,
+    # reverting any bump that spills to a second page.
+    for field in _FILL_MARGINS:
+        lo, _ = bounds(field)
+        if getattr(current, field) > lo:
+            current = replace(current, **{field: lo})
+
+    for field, amplitude in _FILL_BUMPS:
+        value = getattr(current, field)
+        _, hi = bounds(field)
+        step = min(amplitude, hi - value)
+        while step >= 1:
+            candidate = replace(current, **{field: value + step})
+            if pages(candidate) == 1:
+                current = candidate
+                break
+            step -= 1
+
+    return FitResult(current, 1)
 
 
 def export_resume(resume_id: int, fmt: str, settings: ExportSettings | None = None) -> bytes:
