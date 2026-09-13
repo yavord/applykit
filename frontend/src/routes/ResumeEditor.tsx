@@ -4,11 +4,19 @@ import { Link, useBlocker, useParams } from 'react-router';
 import {
   type ApiError,
   activateResume,
+  fitResume,
   getResume,
   type ResumeSectionOut,
   saveSections,
 } from '../api/client';
+import ExportDrawer from '../components/ExportDrawer';
 import SectionEditor from '../components/SectionEditor';
+import {
+  DEFAULT_SETTINGS,
+  type ExportSettings,
+  fromParams,
+  previewQuery,
+} from '../resume/exportSettings';
 import { SECTION_LABELS, type SectionKind } from '../resume/sections';
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -34,6 +42,20 @@ export default function ResumeEditor() {
 
   const blocker = useBlocker(dirty);
 
+  const [settings, setSettings] = useState<ExportSettings>(DEFAULT_SETTINGS);
+  const [undoStack, setUndoStack] = useState<ExportSettings[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const fit = useMutation({
+    mutationFn: () => fitResume(resumeId, previewQuery(settings)),
+    onSuccess: (data) => {
+      const next = fromParams(data.settings);
+      // Record the pre-fit state so the user can walk back a failed attempt.
+      if (previewQuery(next) !== previewQuery(settings)) setUndoStack((s) => [...s, settings]);
+      setSettings(next);
+    },
+  });
+
   const save = useMutation({
     mutationFn: (sections: ResumeSectionOut[]) =>
       saveSections(
@@ -55,6 +77,18 @@ export default function ResumeEditor() {
 
   const cancel = () => {
     if (query.data) setDraft(clone(query.data.sections));
+  };
+
+  const reset = () => {
+    setSettings({ ...DEFAULT_SETTINGS, format: settings.format });
+    setUndoStack([]);
+  };
+
+  const undo = () => {
+    const next = undoStack.at(-1);
+    if (!next) return;
+    setSettings(next);
+    setUndoStack(undoStack.slice(0, -1));
   };
 
   if (query.isPending) {
@@ -111,12 +145,9 @@ export default function ResumeEditor() {
           </button>
         )}
         <div className="editor-actions">
-          <a className="btn" href={`/api/resumes/${resumeId}/export.pdf`}>
-            Export PDF
-          </a>
-          <a className="btn" href={`/api/resumes/${resumeId}/export.docx`}>
-            Export DOCX
-          </a>
+          <button type="button" className="btn" onClick={() => setDrawerOpen(true)}>
+            Export
+          </button>
           <button
             type="button"
             className="btn"
@@ -142,6 +173,12 @@ export default function ResumeEditor() {
         </p>
       )}
 
+      {fit.isError && (
+        <p className="error error-banner" role="alert">
+          {(fit.error as ApiError).message}
+        </p>
+      )}
+
       {draft.map((section) =>
         SECTION_LABELS[section.kind as SectionKind] ? (
           <SectionEditor
@@ -153,6 +190,20 @@ export default function ResumeEditor() {
             }
           />
         ) : null,
+      )}
+
+      {drawerOpen && (
+        <ExportDrawer
+          resumeId={resumeId}
+          settings={settings}
+          dirty={dirty}
+          canUndo={undoStack.length > 0}
+          onChange={setSettings}
+          onReset={reset}
+          onFit={() => fit.mutate()}
+          onUndo={undo}
+          onClose={() => setDrawerOpen(false)}
+        />
       )}
 
       {blocker.state === 'blocked' && (

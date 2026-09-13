@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createHashRouter, RouterProvider } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
+import { DEFAULT_SETTINGS, toQuery } from '../resume/exportSettings';
 import ResumeEditor from './ResumeEditor';
 
 vi.mock('../api/client', () => {
@@ -21,10 +22,21 @@ vi.mock('../api/client', () => {
     listResumes: vi.fn(),
     importResume: vi.fn(),
     deleteResume: vi.fn(),
+    exportUrl: vi.fn(
+      (id: number, fmt: string, query: string) => `/api/resumes/${id}/export.${fmt}?${query}`,
+    ),
+    getExportBlob: vi.fn().mockResolvedValue(new Blob(['%PDF'])),
+    getPages: vi.fn().mockResolvedValue(2),
+    fitResume: vi.fn(),
   };
 });
 
 const mocked = vi.mocked(client);
+
+beforeAll(() => {
+  URL.createObjectURL = vi.fn(() => 'blob:preview') as typeof URL.createObjectURL;
+  URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
+});
 
 function renderEditor() {
   window.location.hash = '#/resumes/1';
@@ -122,15 +134,18 @@ describe('ResumeEditor', () => {
     await waitFor(() => expect(screen.getByLabelText('Name (unverified)')).toHaveValue('Jane Doe'));
   });
 
-  it('renders export links to the saved resume', async () => {
+  it('opens the export drawer and links Download to the saved settings', async () => {
     renderEditor();
 
     await screen.findByLabelText('Name (unverified)');
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
 
-    const pdf = screen.getByRole('link', { name: 'Export PDF' });
-    const docx = screen.getByRole('link', { name: 'Export DOCX' });
-    expect(pdf).toHaveAttribute('href', '/api/resumes/1/export.pdf');
-    expect(docx).toHaveAttribute('href', '/api/resumes/1/export.docx');
+    expect(await screen.findByRole('dialog', { name: 'Export settings' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+    expect(screen.getByRole('menuitem', { name: 'PDF' })).toHaveAttribute(
+      'href',
+      `/api/resumes/1/export.pdf?${toQuery(DEFAULT_SETTINGS)}`,
+    );
   });
 
   it('hides Set active and Cancel for an active resume', async () => {

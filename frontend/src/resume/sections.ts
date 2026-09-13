@@ -29,6 +29,21 @@ export const SECTION_ORDER: SectionKind[] = [
   'certifications',
 ];
 
+/** Palette hue per section kind — the .hue-* utility classes in
+    globals.css. contact & experience share the brand blue; skills &
+    certifications share magenta (both are tag-style lists). */
+export type HueName = 'blue' | 'cyan' | 'magenta' | 'teal' | 'orange';
+
+export const SECTION_HUES: Record<SectionKind, HueName> = {
+  contact: 'blue',
+  summary: 'cyan',
+  skills: 'magenta',
+  experience: 'blue',
+  education: 'teal',
+  projects: 'orange',
+  certifications: 'magenta',
+};
+
 /** Field labels; display order per kind = listed order. */
 export const FIELD_LABELS: Record<string, string> = {
   name: 'Name',

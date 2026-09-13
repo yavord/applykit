@@ -9,6 +9,7 @@ import {
   moveItem,
   removeItem,
   type Scalar,
+  SECTION_HUES,
   SECTION_LABELS,
   SECTION_SPECS,
   type SectionKind,
@@ -327,7 +328,7 @@ export default function SectionEditor({ kind, content, onChange }: Props) {
   if (kind !== 'contact' && kind !== 'summary') {
     const entries = content as Record<string, unknown>[];
     return (
-      <div className="card section-card">
+      <div className={`card section-card hue-${SECTION_HUES[kind]}`}>
         <h2 className="section-title">{SECTION_LABELS[kind]}</h2>
 
         <EntryList spec={spec} entries={entries} onChange={onChange} />
@@ -348,7 +349,7 @@ export default function SectionEditor({ kind, content, onChange }: Props) {
   const long = spec.long;
 
   return (
-    <div className="card section-card">
+    <div className={`card section-card hue-${SECTION_HUES[kind]}`}>
       <h2 className="section-title">{SECTION_LABELS[kind]}</h2>
 
       <ScalarFields

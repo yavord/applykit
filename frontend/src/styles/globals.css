@@ -34,6 +34,17 @@
   --uncertain-strong: #fbbf24; /* badge fill — amber-400 */
   --uncertain-strong-fg: #7c2d12; /* badge text — amber-900 */
 
+  /* extra hues — Tokyo Night "day"; -deep = approx shades darkened
+     for text on light surfaces */
+  --cyan: #2ac3de; /* cyan */
+  --cyan-deep: #0e7f8f; /* approx — darkened cyan for text */
+  --magenta: #9854f1; /* magenta */
+  --magenta-deep: #8a3ff0; /* approx — darkened magenta for text */
+  --teal: #1abc9c; /* teal */
+  --teal-deep: #0d8766; /* approx — darkened teal for text */
+  --orange: #b15c00; /* orange */
+  --orange-deep: #b15c00;
+
   /* component-derived */
   --surface-hover: #c4c8da; /* bg_highlight — row hover */
   --ring-soft: rgba(46, 125, 233, 0.25);
@@ -81,6 +92,16 @@
   /* dark keeps the palette's soft amber badge */
   --uncertain-strong: rgba(224, 175, 104, 0.15);
   --uncertain-strong-fg: #e0af68;
+
+  /* extra hues — Tokyo Night "night" (canonical; text-safe on dark) */
+  --cyan: #7dcfff; /* cyan */
+  --cyan-deep: #7dcfff;
+  --magenta: #bb9af7; /* magenta */
+  --magenta-deep: #bb9af7;
+  --teal: #1abc9c; /* teal */
+  --teal-deep: #1abc9c;
+  --orange: #ff9e64; /* orange */
+  --orange-deep: #ff9e64;
 
   /* component-derived */
   --surface-hover: #24283b; /* storm bg — row hover */
@@ -690,6 +711,12 @@ textarea {
 /* ── Applykit additions ────────────────────────────────────
    Appended; never modify rules copied from omp.css above. */
 
+/* Active = success state; overrides the omp.css blue badge */
+.badge-active {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
 .table-wrap {
   overflow-x: auto;
   border-radius: var(--radius-lg);
@@ -737,4 +764,288 @@ textarea {
     flex-wrap: wrap;
     gap: 12px;
   }
+}
+
+/* ── Export drawer ─────────────────────────────────────────── */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--overlay);
+  backdrop-filter: blur(3px);
+}
+.drawer {
+  /* 1240px ≈ max preview size on 1440p; narrower screens shrink beside margins. */
+  width: min(1240px, calc(100vw - 24px));
+  margin: 12px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog);
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.drawer-pages {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--bg);
+  color: var(--text-secondary);
+  font: 700 12px var(--mono);
+}
+.drawer-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--uncertain-bg);
+  color: var(--uncertain);
+  font-size: 12.5px;
+}
+.drawer-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 18px;
+  overflow: hidden;
+}
+.drawer-controls {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px;
+  min-width: 0;
+}
+.drawer-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.drawer-group h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+.drawer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.drawer-field label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.drawer-field select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 34px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: 13px var(--font);
+}
+.drawer-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.drawer-range label {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.drawer-range input {
+  flex: 1;
+  height: auto;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.drawer-range-value {
+  min-width: 28px;
+  text-align: right;
+  font: 12px var(--mono);
+  color: var(--text-secondary);
+}
+.drawer-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drawer-check input {
+  width: auto;
+  height: auto;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.drawer-check label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.drawer-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 18px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg); /* canvas backdrop floats the white page */
+  min-width: 0;
+}
+.drawer-preview iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+.drawer-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+}
+.drawer-foot-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.drawer-download {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-dialog);
+}
+.menu-item {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+@media (max-width: 860px) {
+  .drawer-body {
+    grid-template-columns: 1fr;
+  }
+  .drawer-preview {
+    display: none;
+  }
+}
+
+/* ── Hue utilities ──────────────────────────────────────────
+   One class per Tokyo Night hue declares --hue (vivid — rails,
+   sliders, checkboxes) and --hue-deep (text-safe headings on the
+   light surface). Consumers below pick either up from any ancestor,
+   falling back to neutrals without a hue class. New pages need no
+   per-hue CSS: put one hue class on the container and the parts
+   color themselves. Section hues are mapped in
+   frontend/src/resume/sections.ts (SECTION_HUES); the drawer
+   groups declare hue classes inline. */
+.hue-blue {
+  --hue: var(--accent);
+  --hue-deep: var(--accent);
+}
+.hue-cyan {
+  --hue: var(--cyan);
+  --hue-deep: var(--cyan-deep);
+}
+.hue-magenta {
+  --hue: var(--magenta);
+  --hue-deep: var(--magenta-deep);
+}
+.hue-teal {
+  --hue: var(--teal);
+  --hue-deep: var(--teal-deep);
+}
+.hue-orange {
+  --hue: var(--orange);
+  --hue-deep: var(--orange-deep);
+}
+
+/* Hue consumers */
+.section-card {
+  border-left: 4px solid var(--hue, var(--border));
+}
+.section-title {
+  color: var(--hue-deep, var(--text));
+}
+.drawer-group h3 {
+  color: var(--hue-deep, var(--text-secondary));
+}
+.drawer-range input,
+.drawer-check input {
+  accent-color: var(--hue, var(--accent));
+}
+
+/* page-count pill reads as live status, like the .local chip */
+.drawer-pages {
+  background: var(--accent-soft);
+  color: var(--accent-soft-fg);
+}
+
+/* error notes are errors, not cautions (amber stays for the hint) */
+.drawer-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────
+   Unified Chrome-only styling: slim rounded thumb in --border,
+   intensifies to --border-strong on hover. Track stays
+   transparent so the thumb floats on the surface behind it. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
