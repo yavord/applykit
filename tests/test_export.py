@@ -265,10 +265,10 @@ def test_export_params_change_output(client, pdf):
     assert default.status_code == 200
     assert with_param.status_code == 200
     assert default.content != with_param.content
-    assert 24.0 in _pdf_fontsizes(default.content)["WorkSans-Bold"]
-    assert 30.0 not in _pdf_fontsizes(default.content)["WorkSans-Bold"]
-    assert 30.0 in _pdf_fontsizes(with_param.content)["WorkSans-Bold"]
-    assert 24.0 not in _pdf_fontsizes(with_param.content)["WorkSans-Bold"]
+    assert 24.0 in _pdf_fontsizes(default.content)["Times-Bold"]
+    assert 30.0 not in _pdf_fontsizes(default.content)["Times-Bold"]
+    assert 30.0 in _pdf_fontsizes(with_param.content)["Times-Bold"]
+    assert 24.0 not in _pdf_fontsizes(with_param.content)["Times-Bold"]
 
 
 def test_export_bad_params_422(client, pdf):
@@ -293,7 +293,7 @@ def test_export_docx_params(client, pdf):
     rid = imported["id"]
 
     default = Document(BytesIO(client.get(f"/api/resumes/{rid}/export.docx").content)).paragraphs[0]
-    assert default.runs[0].font.name == "Work Sans"
+    assert default.runs[0].font.name == "Times New Roman"
     assert default.runs[0].font.size == Pt(24)
 
     timed = Document(

@@ -15,14 +15,17 @@ from xml.sax.saxutils import escape as xml_escape
 
 import reportlab
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Pt
 from pypdf import PdfReader
+from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import ListFlowable, Paragraph, SimpleDocTemplate
+from reportlab.platypus import HRFlowable, ListFlowable, Paragraph, SimpleDocTemplate, Table
 
 from app.data.models import DocKind, Section, SectionKind
 from app.data.repositories import DocumentRepo
@@ -71,13 +74,31 @@ _VENDOR_FONT_FILES = (
 for _name, _file in _VENDOR_FONT_FILES:
     pdfmetrics.registerFont(TTFont(_name, str(_VENDOR_FONT_DIR / _file)))
 
+# Register a family per regular face so <b> inline markup in paragraphs resolves.
+# Times/Helvetica mappings match the reportlab built-ins; Work Sans has no
+# vendored italic TTF, so italic falls back to the regular face.
+for _name, _normal, _bold, _italic, _bold_italic in (
+    ("Times-Roman", "Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic"),
+    ("Helvetica", "Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"),
+    ("WorkSans", "WorkSans", "WorkSans-Bold", "WorkSans", "WorkSans-Bold"),
+):
+    pdfmetrics.registerFontFamily(
+        _name, normal=_normal, bold=_bold, italic=_italic, boldItalic=_bold_italic
+    )
 
-# (regular, bold) reportlab face per family; TNR/Helvetica are base-14 built-ins.
-def _faces(family: FontFamily) -> tuple[str, str]:
+# US Letter page width in points; reportlab and python-docx default to Letter.
+_PAGE_WIDTH = 612
+
+# SimpleDocTemplate Frame default inset on each side; paragraphs flow inside it.
+_FRAME_PAD = 6
+
+
+# (regular, bold, italic) reportlab face per family; TNR/Helvetica are base-14 built-ins.
+def _faces(family: FontFamily) -> tuple[str, str, str]:
     return {
-        FontFamily.WORK_SANS: ("WorkSans", "WorkSans-Bold"),
-        FontFamily.TIMES_NEW_ROMAN: ("Times-Roman", "Times-Bold"),
-        FontFamily.HELVETICA: ("Helvetica", "Helvetica-Bold"),
+        FontFamily.WORK_SANS: ("WorkSans", "WorkSans-Bold", "WorkSans"),
+        FontFamily.TIMES_NEW_ROMAN: ("Times-Roman", "Times-Bold", "Times-Italic"),
+        FontFamily.HELVETICA: ("Helvetica", "Helvetica-Bold", "Helvetica-Oblique"),
     }[family]
 
 
@@ -114,6 +135,9 @@ class Block:
     text: str
     bold: bool = False
     header: bool = False
+    label: str = ""  # bold run prefix; skills group name
+    italic: bool = False  # role/degree line
+    right: str = ""  # same-line right-aligned tail; dates
 
 
 def _scalar(v) -> str:
@@ -141,9 +165,9 @@ def _heading(entry: dict, keys: tuple[str, ...]) -> str:
     return " — ".join(p for p in (_scalar(entry.get(k)) for k in keys) if p)
 
 
-def _line(entry: dict, keys: tuple[str, ...]) -> str:
+def _line(entry: dict, keys: tuple[str, ...], sep: str = " · ") -> str:
     """'location · 2020 – 2023 · GPA: 3.8' from the non-empty scalars of entry."""
-    return " · ".join(p for p in (_scalar(entry.get(k)) for k in keys) if p)
+    return sep.join(p for p in (_scalar(entry.get(k)) for k in keys) if p)
 
 
 def _layout_contact(content) -> list[Block]:
@@ -157,23 +181,25 @@ def _layout_contact(content) -> list[Block]:
     if subtitle := _scalar(content.get("subtitle")):
         blocks.append(Block("text", subtitle, header=True))
 
-    line = _line(content, ("email", "phone", "location"))
+    # Scalars, then links with their bare URL (or name); one pipe-joined line.
+    line = _line(content, ("location", "phone", "email"), sep=" | ")
+    links = []
+    for link in _items(content.get("links")):
+        if not isinstance(link, dict):
+            continue
+
+        url, name = _scalar(link.get("url")), _scalar(link.get("name"))
+        if part := (url or name):
+            links.append(part)
+
+    if links:
+        line = " | ".join(p for p in (line, *links) if p)
     if line:
         blocks.append(Block("text", line, header=True))
 
     tags = [t for t in (_scalar(t) for t in _items(content.get("tags"))) if t]
     if tags:
         blocks.append(Block("text", ", ".join(tags), header=True))
-
-    for link in _items(content.get("links")):
-        if not isinstance(link, dict):
-            continue
-
-        name, url = _scalar(link.get("name")), _scalar(link.get("url"))
-        if name and url:
-            blocks.append(Block("text", f"{name} ({url})", header=True))
-        elif name or url:
-            blocks.append(Block("text", name or url, header=True))
 
     return blocks
 
@@ -206,8 +232,10 @@ def _layout_skills(content, layout: SkillsLayout) -> list[Block]:
             if not group and not skills:
                 continue
 
-            body = f"{group}: {', '.join(skills)}" if group else ", ".join(skills)
-            blocks.append(Block("text", body))
+            if group:
+                blocks.append(Block("text", ", ".join(skills), label=f"{group}: "))
+            else:
+                blocks.append(Block("text", ", ".join(skills)))
     else:
         # INLINE and COLUMN drop group labels; both keep every skill in order.
         skills = [
@@ -233,16 +261,17 @@ def _layout_experience(content) -> list[Block]:
         if not isinstance(entry, dict):
             continue
 
-        if heading := _heading(entry, ("title", "organization")):
-            blocks.append(Block("text", heading, bold=True))
+        head = _scalar(entry.get("organization")) or _scalar(entry.get("title"))
+        if head:
+            dates = _range(entry.get("start"), entry.get("end"))
+            blocks.append(Block("text", head, bold=True, right=dates))
 
-        line = " · ".join(
-            p
-            for p in (_scalar(entry.get("location")), _range(entry.get("start"), entry.get("end")))
-            if p
-        )
-        if line:
-            blocks.append(Block("text", line))
+        title = _scalar(entry.get("title"))
+        if title and title != head:
+            blocks.append(Block("text", title, italic=True))
+
+        if location := _scalar(entry.get("location")):
+            blocks.append(Block("text", location))
 
         if summary := _scalar(entry.get("summary")):
             blocks.append(Block("text", summary))
@@ -263,17 +292,24 @@ def _layout_education(content, order: EducationOrder) -> list[Block]:
         if order is EducationOrder.DEGREE_FIRST
         else ("institution", "degree")
     )
+    first, second = keys
     blocks: list[Block] = []
 
     for entry in _items(content):
         if not isinstance(entry, dict):
             continue
 
-        if heading := _heading(entry, keys):
-            blocks.append(Block("text", heading, bold=True))
+        head = _scalar(entry.get(first)) or _scalar(entry.get(second))
+        if head:
+            dates = _range(entry.get("start"), entry.get("end"))
+            blocks.append(Block("text", head, bold=True, right=dates))
+
+        other = _scalar(entry.get(second))
+        if other and other != head:
+            blocks.append(Block("text", other, italic=True))
 
         gpa = _scalar(entry.get("gpa"))
-        parts = [_scalar(entry.get("location")), _range(entry.get("start"), entry.get("end"))]
+        parts = [_scalar(entry.get("location"))]
         if gpa:
             parts.append(f"GPA: {gpa}")
 
@@ -394,7 +430,7 @@ def _pdf_style(  # noqa: PLR0913  (maps 1:1 to ParagraphStyle fields)
 
 def render_pdf(blocks: list[Block], title: str, settings: ExportSettings) -> bytes:
     """Render blocks to PDF bytes (drawer settings drive fonts and sizes)."""
-    regular, bold = _faces(settings.font_family)
+    regular, bold, italic = _faces(settings.font_family)
     line = settings.line_spacing / 10
 
     h1 = _pdf_style(
@@ -418,6 +454,7 @@ def render_pdf(blocks: list[Block], title: str, settings: ExportSettings) -> byt
         settings.subheader_size * line,
         space_before=settings.entry_spacing,
     )
+    role = _pdf_style("role", italic, settings.body_size, settings.body_size * line)
     justify = TA_JUSTIFY if settings.align_justify else TA_LEFT
     body = _pdf_style(
         "body", regular, settings.body_size, settings.body_size * line, alignment=justify
@@ -469,8 +506,47 @@ def render_pdf(blocks: list[Block], title: str, settings: ExportSettings) -> byt
         elif block.kind == "h2":
             flush_bullets()
             story.append(Paragraph(text, h2))
+            story.append(
+                HRFlowable(
+                    width="100%", thickness=0.5, color=colors.black, spaceBefore=0, spaceAfter=1
+                )
+            )
         elif block.kind == "bullet":
             pending_bullets.append(Paragraph(text, bullet))
+        elif block.label:
+            flush_bullets()
+            story.append(Paragraph(f"<b>{xml_escape(block.label)}</b>{text}", body))
+        elif block.right:
+            flush_bullets()
+            # One row, org left and dates right, both bold; reportlab has no tab
+            # stops (the tab char is whitespace), so a padding-less table pins
+            # the dates flush to the right text edge on the same baseline row.
+            avail = _PAGE_WIDTH - 2 * settings.margin_side - 2 * _FRAME_PAD
+            dates_w = pdfmetrics.stringWidth(block.right, bold, settings.subheader_size)
+            dates_cell = ParagraphStyle(
+                "entry-right",
+                fontName=bold,
+                fontSize=settings.subheader_size,
+                leading=settings.subheader_size * line,
+                alignment=TA_RIGHT,
+            )
+            story.append(
+                Table(
+                    [[Paragraph(text, entry), Paragraph(xml_escape(block.right), dates_cell)]],
+                    colWidths=[max(avail - dates_w, 0), min(dates_w, avail)],
+                    hAlign="LEFT",
+                    style=[
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                        ("TOPPADDING", (0, 0), (-1, -1), 0),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                    ],
+                )
+            )
+        elif block.italic:
+            flush_bullets()
+            story.append(Paragraph(text, role))
         elif block.header:
             flush_bullets()
             story.append(Paragraph(text, contact))
@@ -515,12 +591,39 @@ def render_docx(blocks: list[Block], settings: ExportSettings) -> bytes:
             run.bold = True
             p.paragraph_format.space_before = Pt(settings.section_spacing)
             p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+            # 0.5 pt black rule under the heading; mirrors the PDF HRFlowable.
+            pPr = p._p.get_or_add_pPr()
+            pBdr = OxmlElement("w:pBdr")
+            bottom = OxmlElement("w:bottom")
+            bottom.set(qn("w:val"), "single")
+            bottom.set(qn("w:sz"), "4")
+            bottom.set(qn("w:space"), "1")
+            bottom.set(qn("w:color"), "000000")
+            pBdr.append(bottom)
+            pPr.append(pBdr)
         elif block.kind == "bullet":
             p = document.add_paragraph(block.text, style="List Bullet")
             run = p.runs[0]
             run.font.name = family
             run.font.size = Pt(settings.body_size)
             p.paragraph_format.alignment = justify
+        elif block.label:
+            p = document.add_paragraph()
+            label_run = p.add_run(block.label)
+            label_run.bold = True
+            label_run.font.name = family
+            label_run.font.size = Pt(settings.body_size)
+            run = p.add_run(block.text)
+            run.font.name = family
+            run.font.size = Pt(settings.body_size)
+            p.paragraph_format.alignment = justify
+        elif block.italic:
+            p = document.add_paragraph()
+            run = p.add_run(block.text)
+            run.font.name = family
+            run.font.size = Pt(settings.body_size)
+            run.italic = True
         elif block.header:
             p = document.add_paragraph()
             run = p.add_run(block.text)
@@ -533,6 +636,12 @@ def render_docx(blocks: list[Block], settings: ExportSettings) -> bytes:
             run.font.name = family
             run.font.size = Pt(settings.subheader_size)
             run.bold = True
+            if block.right:
+                run.add_text("\t" + block.right)
+                p.paragraph_format.tab_stops.add_tab_stop(
+                    section.page_width - section.left_margin - section.right_margin,
+                    WD_TAB_ALIGNMENT.RIGHT,
+                )
             p.paragraph_format.space_before = Pt(settings.entry_spacing)
             p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
         else:

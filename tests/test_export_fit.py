@@ -12,13 +12,13 @@ from tests.test_pages import DENSE_ENTRY, _extend_experience, _import, _pages
 
 # Ladder fields and their defaults; fit only shrinks them.
 LADDER_DEFAULTS = {
-    "line_spacing": 12,
+    "line_spacing": 11,
     "margin_top": 36,
     "margin_bottom": 36,
-    "margin_side": 36,
-    "body_size": 11,
+    "margin_side": 44,
+    "body_size": 10,
     "subheader_size": 12,
-    "header_size": 14,
+    "header_size": 12,
     "name_size": 24,
 }
 

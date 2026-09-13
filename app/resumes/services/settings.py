@@ -40,20 +40,20 @@ class ExportSettings:
     """Drawer fields; names mirror query params"""
 
     format: ExportFormat = ExportFormat.PDF
-    font_family: FontFamily = FontFamily.WORK_SANS
+    font_family: FontFamily = FontFamily.TIMES_NEW_ROMAN
     name_size: int = 24
-    header_size: int = 14
+    header_size: int = 12
     subheader_size: int = 12
-    body_size: int = 11
-    header_align: HeaderAlign = HeaderAlign.LEFT
-    education_order: EducationOrder = EducationOrder.DEGREE_FIRST
+    body_size: int = 10
+    header_align: HeaderAlign = HeaderAlign.CENTER
+    education_order: EducationOrder = EducationOrder.INSTITUTION_FIRST
     skills_layout: SkillsLayout = SkillsLayout.GROUPED
     section_spacing: int = 4
     entry_spacing: int = 3
-    line_spacing: int = 12
+    line_spacing: int = 11
     margin_top: int = 36
     margin_bottom: int = 36
-    margin_side: int = 36
+    margin_side: int = 44
     align_justify: bool = False
 
 

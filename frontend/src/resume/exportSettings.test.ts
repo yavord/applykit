@@ -15,20 +15,20 @@ describe('DEFAULT_SETTINGS', () => {
   it('mirrors the 16 contract defaults', () => {
     expect(DEFAULT_SETTINGS).toEqual({
       format: 'pdf',
-      font_family: 'work_sans',
+      font_family: 'times_new_roman',
       name_size: 24,
-      header_size: 14,
+      header_size: 12,
       subheader_size: 12,
-      body_size: 11,
-      header_align: 'left',
-      education_order: 'degree_first',
+      body_size: 10,
+      header_align: 'center',
+      education_order: 'institution_first',
       skills_layout: 'grouped',
       section_spacing: 4,
       entry_spacing: 3,
-      line_spacing: 12,
+      line_spacing: 11,
       margin_top: 36,
       margin_bottom: 36,
-      margin_side: 36,
+      margin_side: 44,
       align_justify: false,
     });
   });
@@ -37,10 +37,10 @@ describe('DEFAULT_SETTINGS', () => {
 describe('toQuery', () => {
   it('serializes defaults in the canonical key order', () => {
     expect(toQuery(DEFAULT_SETTINGS)).toBe(
-      'format=pdf&font_family=work_sans&name_size=24&header_size=14&subheader_size=12' +
-        '&body_size=11&header_align=left&education_order=degree_first&skills_layout=grouped' +
-        '&section_spacing=4&entry_spacing=3&line_spacing=12&margin_top=36&margin_bottom=36' +
-        '&margin_side=36&align_justify=false',
+      'format=pdf&font_family=times_new_roman&name_size=24&header_size=12&subheader_size=12' +
+        '&body_size=10&header_align=center&education_order=institution_first&skills_layout=grouped' +
+        '&section_spacing=4&entry_spacing=3&line_spacing=11&margin_top=36&margin_bottom=36' +
+        '&margin_side=44&align_justify=false',
     );
     expect(Object.keys(toParams(DEFAULT_SETTINGS))).toHaveLength(16);
   });

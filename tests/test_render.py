@@ -4,7 +4,8 @@ import re
 from io import BytesIO
 
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
+from docx.oxml.ns import qn
 from docx.shared import Pt
 from pypdf import PdfReader
 
@@ -25,13 +26,16 @@ def _font_face(ref) -> str:
 
 
 def _pdf_fontsizes(body: bytes) -> dict[str, set[float]]:
-    """Face -> sizes, from /Resources /Font and the Tf operators."""
+    """Face -> sizes actually used by drawn text; Tf-only switches draw nothing."""
     page = PdfReader(BytesIO(body)).pages[0]
     faces = {str(tag): _font_face(ref) for tag, ref in page["/Resources"]["/Font"].items()}
     out: dict[str, set[float]] = {}
+    current = None
     for operands, op in page.get_contents().operations:
         if op == b"Tf":
-            out.setdefault(faces[str(operands[0])], set()).add(round(float(operands[1]), 1))
+            current = (faces[str(operands[0])], round(float(operands[1]), 1))
+        elif op in (b"Tj", b"TJ") and current:
+            out.setdefault(current[0], set()).add(current[1])
     return out
 
 
@@ -64,39 +68,41 @@ def _blocks() -> list[Block]:
 def test_pdf_default_fontsizes():
     s = _pdf_fontsizes(render_pdf(_blocks(), "t", ExportSettings()))
 
-    assert s["WorkSans-Bold"] == {24.0, 14.0, 12.0}
-    assert s["WorkSans-Regular"] == {11.0}
+    assert s["Times-Bold"] == {24.0, 12.0}
+    assert s["Times-Roman"] == {10.0}
 
 
 def test_pdf_builtin_faces():
     s = _pdf_fontsizes(render_pdf(_blocks(), "t", ExportSettings(font_family="times_new_roman")))
 
-    assert s["Times-Bold"] == {24.0, 14.0, 12.0}
-    assert s["Times-Roman"] == {11.0}
+    assert s["Times-Bold"] == {24.0, 12.0}
+    assert s["Times-Roman"] == {10.0}
 
     s = _pdf_fontsizes(render_pdf(_blocks(), "t", ExportSettings(font_family="helvetica")))
 
-    assert s["Helvetica-Bold"] == {24.0, 14.0, 12.0}
-    assert s["Helvetica"] >= {11.0}
+    assert s["Helvetica-Bold"] == {24.0, 12.0}
+    assert s["Helvetica"] == {10.0}
 
 
 def test_pdf_name_size_param():
-    s = _pdf_fontsizes(render_pdf(_blocks(), "t", ExportSettings(name_size=30)))
+    s = _pdf_fontsizes(
+        render_pdf(_blocks(), "t", ExportSettings(font_family="work_sans", name_size=30))
+    )
 
-    assert s["WorkSans-Bold"] == {30.0, 14.0, 12.0}
-    assert s["WorkSans-Regular"] == {11.0}
+    assert s["WorkSans-Bold"] == {30.0, 12.0}
+    assert s["WorkSans-Regular"] == {10.0}
 
 
 def test_docx_run_fonts_and_sizes():
     d = Document(BytesIO(render_docx(_blocks(), ExportSettings())))
 
     name = _para(d, "Jane Q. Developer").runs[0]
-    assert name.font.name == "Work Sans"
+    assert name.font.name == "Times New Roman"
     assert name.font.size == Pt(24)
 
     assert _para(d, "Engineer — Acme Corp").runs[0].font.size == Pt(12)
     assert _para(d, "Engineer — Acme Corp").runs[0].bold is True
-    assert _para(d, "Plain summary body.").runs[0].font.size == Pt(11)
+    assert _para(d, "Plain summary body.").runs[0].font.size == Pt(10)
 
     d = Document(
         BytesIO(render_docx(_blocks(), ExportSettings(font_family="times_new_roman", name_size=28)))
@@ -225,22 +231,62 @@ SKILLS = _sec(
 
 def test_education_order():
     first = _layout([EDU], ExportSettings(education_order=EducationOrder.DEGREE_FIRST))
-    assert first[1].text == "B.S. Computer Science — State University"
+    assert first[1] == Block("text", "B.S. Computer Science", bold=True, right="")
+    assert first[2] == Block("text", "State University", italic=True)
 
     second = _layout([EDU], ExportSettings(education_order=EducationOrder.INSTITUTION_FIRST))
-    assert second[1].text == "State University — B.S. Computer Science"
+    assert second[1] == Block("text", "State University", bold=True, right="")
+    assert second[2] == Block("text", "B.S. Computer Science", italic=True)
 
 
 def test_skills_layouts():
     for layout, expected in (
-        (SkillsLayout.GROUPED, ["Languages: Python, SQL", "AWS"]),
-        (SkillsLayout.INLINE, ["Python, SQL, AWS"]),
-        (SkillsLayout.COLUMN, ["Python", "SQL", "AWS"]),
+        (
+            SkillsLayout.GROUPED,
+            [Block("text", "Python, SQL", label="Languages: "), Block("text", "AWS")],
+        ),
+        (SkillsLayout.INLINE, [Block("text", "Python, SQL, AWS")]),
+        (
+            SkillsLayout.COLUMN,
+            [Block("text", "Python"), Block("text", "SQL"), Block("text", "AWS")],
+        ),
     ):
         blocks = [
-            b.text
-            for b in _layout([SKILLS], ExportSettings(skills_layout=layout))
-            if b.kind != "h2"
+            b for b in _layout([SKILLS], ExportSettings(skills_layout=layout)) if b.kind != "h2"
         ]
 
         assert blocks == expected
+
+
+def test_pdf_h2_emits_rule():
+    body = render_pdf([Block("h1", "t"), Block("h2", "Section")], "t", ExportSettings())
+
+    ops = [
+        op for page in PdfReader(BytesIO(body)).pages for _, op in page.get_contents().operations
+    ]
+
+    assert b"l" in ops or b"re" in ops
+
+
+def test_docx_h2_bottom_border():
+    d = Document(BytesIO(render_docx(_blocks(), ExportSettings())))
+
+    pBdr = _para(d, "Work Experience")._p.pPr.find(qn("w:pBdr"))
+
+    assert pBdr is not None
+    assert pBdr.find(qn("w:bottom")).get(qn("w:val")) == "single"
+
+
+def test_docx_entry_right_tab_stop():
+    d = Document(
+        BytesIO(
+            render_docx(
+                [Block("text", "Acme Corp", bold=True, right="2020 – 2023")], ExportSettings()
+            )
+        )
+    )
+
+    p = d.paragraphs[0]
+
+    assert p.text == "Acme Corp\t2020 – 2023"
+    assert p.paragraph_format.tab_stops[0].alignment == WD_TAB_ALIGNMENT.RIGHT

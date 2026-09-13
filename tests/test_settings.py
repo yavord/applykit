@@ -62,8 +62,13 @@ def test_defaults():
 
     assert settings == ExportSettings()
     assert settings.format is ExportFormat.PDF
-    assert settings.font_family is FontFamily.WORK_SANS
-    assert settings.margin_side == 36
+    assert settings.font_family is FontFamily.TIMES_NEW_ROMAN
+    assert settings.header_align is HeaderAlign.CENTER
+    assert settings.education_order is EducationOrder.INSTITUTION_FIRST
+    assert settings.header_size == 12
+    assert settings.body_size == 10
+    assert settings.line_spacing == 11
+    assert settings.margin_side == 44
 
 
 @pytest.mark.parametrize("field", list(_NON_DEFAULT))
