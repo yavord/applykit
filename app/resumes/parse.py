@@ -431,6 +431,11 @@ def _parse_body(body_lines: list[str]) -> tuple[list[str | dict], str]:
     for line in body_lines:
         if _is_bullet(line):
             bullets.append(_mark(_strip_bullet(line)))
+        elif bullets and isinstance(bullets[-1], str):
+            # Wrapped continuation: PDF text breaks mid-sentence, so the rest
+            # of a bullet arrives without a prefix. Fold it into the bullet
+            # instead of leaking it into the entry summary.
+            bullets[-1] += " " + line.strip()
         else:
             summary_lines.append(line)
 
@@ -480,7 +485,7 @@ def _parse_projects(lines: list[str]) -> list[dict] | None:
     return out or None
 
 
-def _parse_education(lines: list[str]) -> list[dict] | None:
+def _parse_education(lines: list[str]) -> list[dict] | None:  # noqa: PLR0912
     out = []
 
     for para in _paragraphs(lines):
@@ -513,7 +518,9 @@ def _parse_education(lines: list[str]) -> list[dict] | None:
                     continue
 
                 if not degree and _DEGREE_PREFIX.match(line):
-                    degree = line.split(",", 1)[0].strip()
+                    # Keep trailing major after the comma; drop only inline
+                    # GPA or date clauses, which have their own fields.
+                    degree = _GPA_RE.sub("", _RANGE_RE.sub("", line)).strip(" ,")
                     continue
 
                 if not location and _LOCATION_RE.match(line):
@@ -536,6 +543,11 @@ def _parse_education(lines: list[str]) -> list[dict] | None:
 
                 if _is_bullet(line):
                     achievements.append(_mark(_strip_bullet(line)))
+                    continue
+
+                if achievements and isinstance(achievements[-1], str):
+                    # Wrapped continuation of an achievement bullet, same as _parse_body.
+                    achievements[-1] += " " + line.strip()
                     continue
 
             out.append(
