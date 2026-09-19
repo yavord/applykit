@@ -31,7 +31,7 @@ from app.data.models import DocKind, Section, SectionKind
 from app.data.repositories import DocumentRepo
 from app.resumes.errors import DocumentNotFoundError, SettingsError, UnprocessableError
 from app.resumes.services.resume_service import get_resume, get_sections
-from app.resumes.services.settings import (
+from app.resumes.settings import (
     EducationOrder,
     ExportFormat,
     ExportSettings,

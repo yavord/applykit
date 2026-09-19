@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request, Response
 from app.data.repositories import DocumentRepo
 from app.resumes.services.export_service import MIME, download_name, export_revision
 from app.resumes.services.resume_service import get_resume
-from app.resumes.services.settings import parse_settings
+from app.resumes.settings import parse_settings
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 

@@ -3,7 +3,7 @@
 import pytest
 
 from app.resumes.errors import SettingsError
-from app.resumes.services.settings import (
+from app.resumes.settings import (
     EducationOrder,
     ExportFormat,
     ExportSettings,

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.resumes.services.settings import ExportSettings, settings_to_params
+from app.resumes.settings import ExportSettings, settings_to_params
 from app.web.main import app
 from tests.test_export import SAMPLE_LINES, write_pdf
 from tests.test_pages import DENSE_ENTRY, _extend_experience, _import, _pages

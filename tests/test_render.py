@@ -10,7 +10,7 @@ from docx.shared import Pt
 from pypdf import PdfReader
 
 from app.resumes.services.export_service import Block, _layout, render_docx, render_pdf
-from app.resumes.services.settings import (
+from app.resumes.settings import (
     EducationOrder,
     ExportSettings,
     HeaderAlign,

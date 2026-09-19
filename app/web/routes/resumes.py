@@ -20,7 +20,7 @@ from app.resumes.services.resume_service import (
     list_resumes,
     save_sections,
 )
-from app.resumes.services.settings import parse_settings, settings_to_params
+from app.resumes.settings import parse_settings, settings_to_params
 from app.web.schemas import FitOut, PagesOut, ResumeOut, SectionsIn, resume_out
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
