@@ -90,6 +90,7 @@ DEFAULT_FILTERS = {
     "date_posted": "",
     "years_experience": "",
     "industry": [],
+    "terms": [],
 }
 
 # Application-profile keys (profiles table): name, email, phone, links, work_auth, answers.

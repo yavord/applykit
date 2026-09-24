@@ -7,10 +7,11 @@ SQLAlchemy model instances; callers read attributes.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime
 
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import delete, exists, func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -102,6 +103,67 @@ def normalize(value: str) -> str:
 
 def _like_escape(term: str) -> str:
     return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+# Exact-match filter key -> column (case-insensitive equality).
+_EXACT_COLUMNS = {
+    "location": Job.location,
+    "work_arrangement": Job.work_arrangement,
+    "seniority": Job.seniority,
+    "employment_type": Job.employment_type,
+}
+
+
+def _keyword_cond(value: str):
+    """Casefolded substring match on title or company (D2 keyword)."""
+    pattern = f"%{_like_escape(normalize(value))}%"
+
+    return or_(
+        Job.norm_title.like(pattern, escape="\\"), Job.norm_company.like(pattern, escape="\\")
+    )
+
+
+def _exact_cond(column, values: Sequence[str]):
+    """Case-insensitive equality, one value per entry; internal whitespace is kept."""
+    return func.lower(func.trim(column)).in_([value.lower() for value in values])
+
+
+def _json_values_cond(column, values: Sequence[str]):
+    """True when any scalar inside a JSON column equals one of `values`.
+
+    `industry_meta` has no fixed shape (no source contract pins its keys), so
+    membership is tested against every leaf instead of a designated key.
+
+    The table-valued alias MUST be created once and bound to a name: calling
+    json_each(...).table_valued(...) twice inside one exists() puts the same
+    FROM alias in one subquery and SQLite fails with "ambiguous column name".
+    Sibling exists() subqueries may reuse the alias name.
+    """
+    rows = func.json_each(column).table_valued("value").alias("json_values")
+
+    return exists(
+        select(1)
+        .select_from(rows)
+        .where(func.lower(func.trim(rows.c.value)).in_([value.lower() for value in values]))
+    )
+
+
+def _term_cond(variants: Sequence[str]):
+    """One skill term: any synonym spelling in description or extracted skills."""
+    conds = []
+
+    for variant in variants:
+        pattern = f"%{_like_escape(normalize(variant))}%"
+        rows = func.json_each(Job.extracted_skills).table_valued("value").alias("skill_values")
+
+        conds.append(
+            or_(
+                Job.description.like(pattern, escape="\\"),
+                exists(select(1).select_from(rows).where(rows.c.value.like(pattern, escape="\\"))),
+            )
+        )
+
+    return or_(*conds)
 
 
 _MARKER_KEYS = frozenset({"v", "uncertain"})
@@ -345,15 +407,24 @@ class JobRepo:
         with SessionLocal() as s:
             return s.get(Job, job_id)
 
-    def search(
+    def search(  # noqa: PLR0913
         self,
         term: str | None = None,
         status: str | None = None,
+        filters: Mapping[str, object] | None = None,
         limit: int = 50,
         offset: int = 0,
         sort: str = "newest",
     ) -> tuple[list[Job], int]:
-        conds = self._search_conds(term, status)
+        """Search jobs; `filters` is the query spec built by
+        app.discovery.services.filters.to_query: title (keyword),
+        location/work_arrangement/seniority/employment_type (exact,
+        case-insensitive), industry (any value inside industry_meta), date_from
+        (ISO lower bound on posted_date, inclusive), terms (synonym groups;
+        groups are AND-ed, the spellings inside one group are OR-ed over
+        description and extracted_skills).
+        """
+        conds = [*self._search_conds(term, status), *self._filter_conds(filters or {})]
 
         with SessionLocal() as s:
             total = s.scalar(select(func.count()).select_from(Job).where(*conds))
@@ -371,13 +442,7 @@ class JobRepo:
         conds = []
 
         if term:
-            pattern = f"%{_like_escape(normalize(term))}%"
-            conds.append(
-                or_(
-                    Job.norm_title.like(pattern, escape="\\"),
-                    Job.norm_company.like(pattern, escape="\\"),
-                )
-            )
+            conds.append(_keyword_cond(term))
 
         if status == "recommended":
             conds.append(
@@ -389,6 +454,29 @@ class JobRepo:
             conds.append(Job.hidden_at.is_not(None))
         elif status == "applied":
             conds.append(Job.applied_at.is_not(None))
+
+        return conds
+
+    @staticmethod
+    def _filter_conds(filters: Mapping[str, object]) -> list:
+        """Read-side filter clauses; an empty value imposes no condition (D2)."""
+        conds = []
+
+        if title := str(filters.get("title") or "").strip():
+            conds.append(_keyword_cond(title))
+
+        for key, column in _EXACT_COLUMNS.items():
+            if values := filters.get(key):
+                conds.append(_exact_cond(column, values))
+
+        if values := filters.get("industry"):
+            conds.append(_json_values_cond(Job.industry_meta, values))
+
+        if date_from := filters.get("date_from"):
+            conds.append(Job.posted_date >= date_from)
+
+        for variants in filters.get("terms") or []:
+            conds.append(_term_cond(variants))
 
         return conds
 

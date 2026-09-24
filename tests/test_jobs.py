@@ -144,3 +144,157 @@ def test_search_status_filters(repo):
     assert total == 1
     _, total = repo.search(status="recommended")
     assert total == 1
+
+
+def test_filter_title_keyword_matches_title_or_company(repo):
+    id1 = repo.upsert(job_data(title="Data Engineer", norm_title="data engineer"))
+    id2 = repo.upsert(
+        job_data(
+            title="Backend", company="Engine Co", norm_title="backend", norm_company="engine co"
+        )
+    )
+
+    jobs, total = repo.search(filters={"title": "ENGINE"})
+
+    assert total == 2
+    assert {j.id for j in jobs} == {id1, id2}
+
+
+def test_filter_title_like_wildcards_stay_literal(repo):
+    id1 = repo.upsert(job_data(title="Job 50% remote", norm_title="job 50% remote"))
+    repo.upsert(job_data(title="Job A remote", norm_title="job a remote"))
+
+    jobs, total = repo.search(filters={"title": "50%"})
+
+    assert total == 1
+    assert [j.id for j in jobs] == [id1]
+
+
+@pytest.mark.parametrize(
+    "key,value,other",
+    [
+        ("location", "europe", "US"),
+        ("work_arrangement", "remote", "hybrid"),
+        ("seniority", "senior", "entry"),
+        ("employment_type", "full_time", "contract"),
+    ],
+)
+def test_filter_exact_fields(repo, key, value, other):
+    id1 = repo.upsert(job_data(**{key: value.title() if key == "location" else value}))
+    repo.upsert(job_data(**{key: other}))
+
+    jobs, total = repo.search(filters={key: [value]})
+    assert total == 1
+    assert [j.id for j in jobs] == [id1]
+
+    _, total = repo.search(filters={key: []})
+    assert total == 2
+
+
+def test_filter_industry_matches_json_leaf(repo):
+    id1 = repo.upsert(job_data(industry_meta={"category": "Software Development"}))
+    repo.upsert(
+        job_data(company="Globex", norm_company="globex", industry_meta={"category": "Retail"})
+    )
+
+    jobs, total = repo.search(filters={"industry": ["software development"]})
+
+    assert total == 1
+    assert [j.id for j in jobs] == [id1]
+
+
+def test_filter_industry_excludes_null_meta(repo):
+    repo.upsert(job_data())
+
+    _, total = repo.search(filters={"industry": ["software development"]})
+
+    assert total == 0
+
+
+def test_filter_terms_match_description_or_skills(repo):
+    id1 = repo.upsert(
+        job_data(
+            description="We run Google Cloud Platform",
+            extracted_skills=["K8s", "Terraform"],
+        )
+    )
+    repo.upsert(job_data(company="Globex", norm_company="globex", description="Sales and revenue"))
+
+    jobs, total = repo.search(filters={"terms": [("gcp", "google cloud", "google cloud platform")]})
+    assert total == 1
+    assert [j.id for j in jobs] == [id1]
+
+    jobs, total = repo.search(filters={"terms": [("k8s",)]})
+    assert total == 1
+    assert [j.id for j in jobs] == [id1]
+
+
+def test_filter_terms_are_anded(repo):
+    repo.upsert(
+        job_data(description="We run Google Cloud Platform", extracted_skills=["K8s", "Terraform"])
+    )
+
+    _, total = repo.search(
+        filters={"terms": [("gcp", "google cloud", "google cloud platform"), ("terraform",)]}
+    )
+    assert total == 1
+
+    _, total = repo.search(
+        filters={"terms": [("gcp", "google cloud", "google cloud platform"), ("rust",)]}
+    )
+    assert total == 0
+
+
+def test_filter_date_from_inclusive(repo):
+    repo.upsert(job_data(posted_date="2026-01-05"))
+    id2 = repo.upsert(job_data(title="Second", norm_title="second", posted_date="2026-09-23"))
+
+    jobs, total = repo.search(filters={"date_from": "2026-01-05"})
+    assert total == 2
+
+    jobs, total = repo.search(filters={"date_from": "2026-06-01"})
+    assert total == 1
+    assert [j.id for j in jobs] == [id2]
+
+
+def test_filter_date_from_excludes_null_posted(repo):
+    repo.upsert(job_data(posted_date="2026-09-23"))
+    repo.upsert(job_data(title="Second", norm_title="second", posted_date=None))
+
+    _, total = repo.search(filters={"date_from": "2026-01-01"})
+    assert total == 1
+
+    _, total = repo.search(filters={})
+    assert total == 2
+
+
+def test_filter_combines_with_term(repo):
+    id1 = repo.upsert(job_data(location="US"))
+    repo.upsert(job_data(title="Backend", norm_title="backend", location="EU"))
+
+    jobs, total = repo.search("DATA", filters={"location": ["US"]})
+
+    assert total == 1
+    assert [j.id for j in jobs] == [id1]
+
+
+def test_filter_empty_block_matches_all(repo):
+    repo.upsert(job_data(posted_date="2026-01-05"))
+    repo.upsert(job_data(title="Second", norm_title="second", posted_date="2026-09-23"))
+
+    plain, total_plain = repo.search()
+    filtered, total_filtered = repo.search(filters={})
+
+    assert [j.id for j in plain] == [j.id for j in filtered]
+    assert total_plain == total_filtered
+    assert total_plain == 2
+
+
+def test_filter_orders_newest_first_nulls_last(repo):
+    id1 = repo.upsert(job_data(posted_date="2026-01-05"))
+    id2 = repo.upsert(job_data(title="Second", norm_title="second", posted_date="2026-09-23"))
+    id3 = repo.upsert(job_data(title="Third", norm_title="third", posted_date=None))
+
+    jobs, _ = repo.search(filters={})
+
+    assert [j.id for j in jobs] == [id2, id1, id3]

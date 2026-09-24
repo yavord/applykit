@@ -55,3 +55,53 @@ def resume_out(resume, sections) -> ResumeOut:
         created_at=resume.created_at,
         updated_at=resume.updated_at,
     )
+
+
+class JobOut(BaseModel):
+    """One stored job; missing values stay null (D9), the UI renders "Not provided"."""
+
+    id: int
+    source: str
+    title: str
+    company: str
+    location: str | None
+    work_arrangement: str | None
+    employment_type: str | None
+    seniority: str | None
+    compensation: str | None
+    posted_date: str | None
+    experience_req: str | None
+    industry_meta: dict | None
+    description: str | None
+    responsibilities: list | None
+    qualifications: list | None
+    extracted_skills: list | None
+    canonical_url: str | None
+
+
+class JobListOut(BaseModel):
+    jobs: list[JobOut]
+    total: int
+
+
+def job_out(job) -> JobOut:
+    """Job ORM row -> API model; nulls pass through, never a substitute string."""
+    return JobOut(
+        id=job.id,
+        source=job.source,
+        title=job.title,
+        company=job.company,
+        location=job.location,
+        work_arrangement=job.work_arrangement,
+        employment_type=job.employment_type,
+        seniority=job.seniority,
+        compensation=job.compensation,
+        posted_date=job.posted_date,
+        experience_req=job.experience_req,
+        industry_meta=job.industry_meta,
+        description=job.description,
+        responsibilities=job.responsibilities,
+        qualifications=job.qualifications,
+        extracted_skills=job.extracted_skills,
+        canonical_url=job.canonical_url,
+    )

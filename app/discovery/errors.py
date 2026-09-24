@@ -15,3 +15,9 @@ class SourceConfigError(DiscoveryError):
 
 class SourceVersionError(SourceConfigError):
     """An installed implementation targets a different seam version."""
+
+
+class FilterError(DiscoveryError):
+    """Invalid discovery filter block; 422."""
+
+    status_code = 422
