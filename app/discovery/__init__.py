@@ -22,6 +22,13 @@ from app.discovery.services.filters import (
 )
 from app.discovery.services.job_service import list_jobs
 from app.discovery.services.registry import load_captcha, load_sources
+from app.discovery.services.seed import (
+    SENIORITY_BANDS,
+    prefill_filters,
+    seed_filters,
+    seed_from_sections,
+    seniority_band,
+)
 from app.discovery.services.source_adapter import (
     SOURCE_FETCH_LIMIT,
     SOURCE_SEAM_VERSION,
@@ -38,6 +45,7 @@ __all__ = [
     "DiscoveryError",
     "EmploymentType",
     "FilterError",
+    "SENIORITY_BANDS",
     "SKILL_ALIASES",
     "SOURCE_FETCH_LIMIT",
     "SOURCE_SEAM_VERSION",
@@ -54,6 +62,10 @@ __all__ = [
     "load_filters",
     "load_sources",
     "parse_filters",
+    "prefill_filters",
     "save_filters",
+    "seed_filters",
+    "seed_from_sections",
+    "seniority_band",
     "to_query",
 ]

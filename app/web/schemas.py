@@ -84,6 +84,12 @@ class JobListOut(BaseModel):
     total: int
 
 
+class JobsSettingsOut(BaseModel):
+    """Jobs filter prefill; the filter block is a plain dict (as in the jobs list)."""
+
+    filters: dict
+
+
 def job_out(job) -> JobOut:
     """Job ORM row -> API model; nulls pass through, never a substitute string."""
     return JobOut(

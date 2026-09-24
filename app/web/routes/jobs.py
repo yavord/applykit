@@ -4,7 +4,8 @@ from fastapi import APIRouter, Request
 
 from app.discovery.services.filters import parse_filters
 from app.discovery.services.job_service import list_jobs
-from app.web.schemas import JobListOut, job_out
+from app.discovery.services.seed import prefill_filters
+from app.web.schemas import JobListOut, JobsSettingsOut, job_out
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -20,3 +21,9 @@ def list_jobs_route(request: Request) -> JobListOut:
     jobs, total = list_jobs(filters)
 
     return JobListOut(jobs=[job_out(job) for job in jobs], total=total)
+
+
+@router.get("/settings", response_model=JobsSettingsOut)
+def jobs_settings_route() -> JobsSettingsOut:
+    """Filter prefill: persisted block when present, else seeds from the active resume."""
+    return JobsSettingsOut(filters=prefill_filters())
