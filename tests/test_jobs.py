@@ -57,6 +57,28 @@ def test_no_url_dedupes_on_4_tuple(repo, session):
     assert job_count(session) == 1
 
 
+def test_would_update_matches_upsert_authority(repo):
+    assert repo.would_update(job_data(canonical_url="https://job/1")) is False
+
+    repo.upsert(job_data(canonical_url="https://job/1"))
+    assert repo.would_update(job_data(canonical_url="https://job/1")) is True
+    assert repo.would_update(job_data(canonical_url="https://job/2")) is False
+
+    base = {
+        "norm_company": "acme",
+        "norm_title": "data engineer",
+        "norm_location": "berlin",
+        "posted_date": "2026-01-01",
+    }
+    assert repo.would_update(job_data(**base)) is False
+
+    repo.upsert(job_data(**base))
+    assert repo.would_update(job_data(**base)) is True
+
+    # A NULL tuple component never collides: upsert always inserts there.
+    assert repo.would_update(job_data(norm_location=None, posted_date="2026-01-01")) is False
+
+
 def test_null_tuple_component_inserts_new_row(repo, session):
     base = {"norm_company": "acme", "norm_title": "data engineer"}
 

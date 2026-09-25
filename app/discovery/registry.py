@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from importlib.metadata import EntryPoint, entry_points
 
+from app.discovery.captcha import CAPTCHA_SEAM_VERSION, CaptchaSolver
 from app.discovery.errors import SourceConfigError, SourceVersionError
-from app.discovery.services.captcha import CAPTCHA_SEAM_VERSION, CaptchaSolver
-from app.discovery.services.source_adapter import SOURCE_SEAM_VERSION, SourceAdapter
+from app.discovery.source_adapter import SOURCE_SEAM_VERSION, SourceAdapter
 
 SOURCES_GROUP = "applykit.sources"
 CAPTCHA_GROUP = "applykit.captcha"

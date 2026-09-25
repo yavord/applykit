@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 from app.data import Job
 from app.data.repositories import JobRepo
-from app.discovery.services.filters import to_query
+from app.discovery.filters import to_query
 
 
 def list_jobs(filters: Mapping[str, object]) -> tuple[list[Job], int]:

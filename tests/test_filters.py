@@ -8,7 +8,7 @@ from app.data import DEFAULT_FILTERS, KEY_DISCOVERY_FILTERS, utcnow
 from app.data.repositories import SettingsRepo
 from app.discovery import SKILL_ALIASES
 from app.discovery.errors import FilterError
-from app.discovery.services.filters import load_filters, parse_filters, save_filters, to_query
+from app.discovery.filters import load_filters, parse_filters, save_filters, to_query
 
 
 def test_empty_block_is_defaults():

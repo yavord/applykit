@@ -7,6 +7,8 @@ DATA_DIR_ENV = "APPLYKIT_DATA_DIR"
 
 UPLOADS = "uploads"
 
+REJECTED = "rejected"
+
 
 def data_root() -> Path:
     """Resolve and ensure the data root: env var override or repo-local `data/`."""
@@ -25,6 +27,11 @@ def db_path() -> Path:
 
 def uploads_dir() -> Path:
     return _ensure_dir(UPLOADS)
+
+
+def rejected_dir() -> Path:
+    """Directory of rejected-record reports; created on first use."""
+    return _ensure_dir(REJECTED)
 
 
 def absolute_path(relative: str) -> Path:

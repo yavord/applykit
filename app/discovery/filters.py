@@ -10,7 +10,7 @@ from enum import StrEnum
 from app.data import DEFAULT_FILTERS, KEY_DISCOVERY_FILTERS, utcnow
 from app.data.repositories import SettingsRepo, normalize
 from app.discovery.errors import FilterError
-from app.discovery.services.vocab import EmploymentType, Seniority, WorkArrangement
+from app.discovery.vocab import EmploymentType, Seniority, WorkArrangement
 
 
 class DatePosted(StrEnum):

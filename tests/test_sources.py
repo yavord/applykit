@@ -16,8 +16,8 @@ from app.discovery import (
     SourceVersionError,
     load_captcha,
     load_sources,
+    registry,
 )
-from app.discovery.services import registry
 from tests.fakes import (
     FAKE_JOB,
     FakeAdapter,

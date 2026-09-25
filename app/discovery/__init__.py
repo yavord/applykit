@@ -4,6 +4,7 @@ No SourceAdapter or CaptchaSolver implementation ships in this tree; real
 implementations are installed packages that register entry points.
 """
 
+from app.discovery.captcha import CAPTCHA_SEAM_VERSION, CaptchaSolver
 from app.discovery.errors import (
     DiscoveryError,
     FilterError,
@@ -11,8 +12,7 @@ from app.discovery.errors import (
     SourceError,
     SourceVersionError,
 )
-from app.discovery.services.captcha import CAPTCHA_SEAM_VERSION, CaptchaSolver
-from app.discovery.services.filters import (
+from app.discovery.filters import (
     SKILL_ALIASES,
     DatePosted,
     load_filters,
@@ -20,23 +20,24 @@ from app.discovery.services.filters import (
     save_filters,
     to_query,
 )
-from app.discovery.services.job_service import list_jobs
-from app.discovery.services.registry import load_captcha, load_sources
-from app.discovery.services.seed import (
+from app.discovery.registry import load_captcha, load_sources
+from app.discovery.seed import (
     SENIORITY_BANDS,
     prefill_filters,
     seed_filters,
     seed_from_sections,
     seniority_band,
 )
-from app.discovery.services.source_adapter import (
+from app.discovery.services.discovery_service import run_discovery
+from app.discovery.services.job_service import list_jobs
+from app.discovery.source_adapter import (
     SOURCE_FETCH_LIMIT,
     SOURCE_SEAM_VERSION,
     SourceAdapter,
     SourceJob,
     SourceQuery,
 )
-from app.discovery.services.vocab import EmploymentType, Seniority, WorkArrangement
+from app.discovery.vocab import EmploymentType, Seniority, WorkArrangement
 
 __all__ = [
     "CAPTCHA_SEAM_VERSION",
@@ -63,6 +64,7 @@ __all__ = [
     "load_sources",
     "parse_filters",
     "prefill_filters",
+    "run_discovery",
     "save_filters",
     "seed_filters",
     "seed_from_sections",

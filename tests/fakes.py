@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.discovery.services.captcha import CAPTCHA_SEAM_VERSION
-from app.discovery.services.registry import CAPTCHA_GROUP, SOURCES_GROUP
-from app.discovery.services.source_adapter import (
+from app.discovery.captcha import CAPTCHA_SEAM_VERSION
+from app.discovery.registry import CAPTCHA_GROUP, SOURCES_GROUP
+from app.discovery.source_adapter import (
     SOURCE_SEAM_VERSION,
     SourceJob,
     SourceQuery,
@@ -84,6 +84,6 @@ def stub_captcha(name: str, loaded: object) -> StubEntryPoint:
 def install_entries(monkeypatch, *entries) -> None:
     """Point the registry at `entries` instead of installed metadata, per group."""
     monkeypatch.setattr(
-        "app.discovery.services.registry.entry_points",
+        "app.discovery.registry.entry_points",
         lambda group=None, **_: [ep for ep in entries if ep.group == group],
     )

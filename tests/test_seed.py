@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 from app.data import DEFAULT_FILTERS
 from app.data.models import SectionKind
 from app.data.repositories import ResumeRepo
-from app.discovery.services.filters import save_filters
-from app.discovery.services.seed import (
+from app.discovery.filters import save_filters
+from app.discovery.seed import (
     prefill_filters,
     seed_filters,
     seed_from_sections,
@@ -99,7 +99,7 @@ def test_seniority_band_boundaries(years, band):
 
 
 def test_union_counts_overlaps_once_and_skips_gaps(monkeypatch):
-    monkeypatch.setattr("app.discovery.services.seed.utcnow", lambda: FIXED_NOW)
+    monkeypatch.setattr("app.discovery.seed.utcnow", lambda: FIXED_NOW)
 
     overlapping = seed_from_sections(
         [
@@ -129,7 +129,7 @@ def test_union_counts_overlaps_once_and_skips_gaps(monkeypatch):
 
 
 def test_present_anchors_to_now(monkeypatch):
-    monkeypatch.setattr("app.discovery.services.seed.utcnow", lambda: FIXED_NOW)
+    monkeypatch.setattr("app.discovery.seed.utcnow", lambda: FIXED_NOW)
 
     seeds = seed_from_sections(
         [

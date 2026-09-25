@@ -13,8 +13,8 @@ from collections.abc import Iterable, Mapping
 from app.data import KEY_DISCOVERY_FILTERS
 from app.data.models import SectionKind, utcnow
 from app.data.repositories import ResumeRepo, SettingsRepo
-from app.discovery.services.filters import load_filters, parse_filters
-from app.discovery.services.vocab import Seniority
+from app.discovery.filters import load_filters, parse_filters
+from app.discovery.vocab import Seniority
 
 SENIORITY_BANDS: tuple[tuple[int, int | None, str], ...] = (
     (0, 2, Seniority.ENTRY),

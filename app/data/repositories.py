@@ -101,6 +101,28 @@ def normalize(value: str) -> str:
     return " ".join(value.casefold().split())
 
 
+def _dedupe_conds(data: JobData) -> list:
+    """Conditions matching the row `upsert` would refresh; [] when none can exist.
+
+    Mirrors the two partial unique indexes in app/data/models.py. A NULL tuple
+    component never collides (SQLite UNIQUE treats NULLs as distinct), so such
+    a record always inserts.
+    """
+    if data.canonical_url is not None:
+        return [Job.canonical_url == data.canonical_url]
+
+    if None in (data.norm_company, data.norm_title, data.norm_location, data.posted_date):
+        return []
+
+    return [
+        Job.canonical_url.is_(None),
+        Job.norm_company == data.norm_company,
+        Job.norm_title == data.norm_title,
+        Job.norm_location == data.norm_location,
+        Job.posted_date == data.posted_date,
+    ]
+
+
 def _like_escape(term: str) -> str:
     return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
@@ -403,6 +425,21 @@ class JobRepo:
 
             return job_id
 
+    def would_update(self, data: JobData) -> bool:
+        """True when `upsert(data)` would refresh an existing row, not insert one.
+
+        The dedupe counterpart of upsert, used for new/duplicate run counts.
+        Checked before the upsert, so two processes claiming two different runs
+        at once may both count one row as new; counts are advisory UI numbers.
+        """
+        conds = _dedupe_conds(data)
+
+        if not conds:
+            return False
+
+        with SessionLocal() as s:
+            return s.scalar(select(Job.id).where(*conds).limit(1)) is not None
+
     def get(self, job_id: int) -> Job | None:
         with SessionLocal() as s:
             return s.get(Job, job_id)
@@ -417,7 +454,7 @@ class JobRepo:
         sort: str = "newest",
     ) -> tuple[list[Job], int]:
         """Search jobs; `filters` is the query spec built by
-        app.discovery.services.filters.to_query: title (keyword),
+        app.discovery.filters.to_query: title (keyword),
         location/work_arrangement/seniority/employment_type (exact,
         case-insensitive), industry (any value inside industry_meta), date_from
         (ISO lower bound on posted_date, inclusive), terms (synonym groups;

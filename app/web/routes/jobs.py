@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter, Request
 
-from app.discovery.services.filters import parse_filters
+from app.discovery.filters import parse_filters
+from app.discovery.seed import prefill_filters
 from app.discovery.services.job_service import list_jobs
-from app.discovery.services.seed import prefill_filters
 from app.web.schemas import JobListOut, JobsSettingsOut, job_out
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
