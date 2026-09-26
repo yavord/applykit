@@ -21,3 +21,9 @@ class FilterError(DiscoveryError):
     """Invalid discovery filter block; 422."""
 
     status_code = 422
+
+
+class NoActiveResumeError(DiscoveryError):
+    """A run needs an active resume snapshot; 409."""
+
+    status_code = 409

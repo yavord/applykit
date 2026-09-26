@@ -267,6 +267,7 @@ class Run(Base):
     filters: Mapped[dict] = mapped_column(JSON)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    message: Mapped[str | None] = mapped_column(String)  # failure reason; null while ok
 
 
 class SourceState(Base):

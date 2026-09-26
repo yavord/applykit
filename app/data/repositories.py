@@ -33,6 +33,7 @@ from app.data.models import (
     Section,
     Setting,
     SourceState,
+    SourceStatus,
     utcnow,
 )
 
@@ -627,7 +628,13 @@ class DiscoveryRepo:
 
             return run.id
 
-    def set_status(self, run_id: int, status: str, finished_at: datetime | None = None) -> None:
+    def set_status(
+        self,
+        run_id: int,
+        status: str,
+        finished_at: datetime | None = None,
+        message: str | None = None,
+    ) -> None:
         with SessionLocal() as s:
             run = s.get(Run, run_id)
 
@@ -639,7 +646,60 @@ class DiscoveryRepo:
             if status in (RunStatus.COMPLETED, RunStatus.FAILED):
                 run.finished_at = finished_at or utcnow()
 
+            if message is not None:
+                run.message = message
+
             s.commit()
+
+    def next_queued(self) -> int | None:
+        with SessionLocal() as s:
+            return s.scalar(
+                select(Run.id).where(Run.status == RunStatus.QUEUED).order_by(Run.id).limit(1)
+            )
+
+    def claim(self, run_id: int) -> bool:
+        """Atomically take a QUEUED run; False when another process won it first."""
+        with SessionLocal() as s:
+            result = s.execute(
+                update(Run)
+                .where(Run.id == run_id, Run.status == RunStatus.QUEUED)
+                .values(status=RunStatus.RUNNING, started_at=utcnow())
+            )
+            s.commit()
+
+            return result.rowcount == 1
+
+    def fail_stale(self, older_than: datetime, message: str) -> int:
+        """Fail RUNNING runs that died with their process; return the count."""
+        with SessionLocal() as s:
+            result = s.execute(
+                update(Run)
+                .where(Run.status == RunStatus.RUNNING, Run.started_at < older_than)
+                .values(status=RunStatus.FAILED, message=message, finished_at=utcnow())
+            )
+            s.commit()
+
+            return result.rowcount
+
+    def has_unfinished(self) -> bool:
+        with SessionLocal() as s:
+            return s.scalar(
+                select(exists().where(Run.status.in_((RunStatus.QUEUED, RunStatus.RUNNING))))
+            )
+
+    def has_ok_completed_since(self, cutoff: datetime) -> bool:
+        """True when a COMPLETED run since cutoff stored at least one OK source state."""
+        with SessionLocal() as s:
+            return s.scalar(
+                select(
+                    exists().where(
+                        SourceState.status == SourceStatus.OK,
+                        Run.status == RunStatus.COMPLETED,
+                        Run.finished_at >= cutoff,
+                        SourceState.run_id == Run.id,
+                    )
+                )
+            )
 
     def set_source_state(  # noqa: PLR0913
         self,

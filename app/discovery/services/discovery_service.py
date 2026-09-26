@@ -8,19 +8,32 @@ stored verbatim (D9). Records the seam refuses go to the rejected-record log.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 
 from app.data.models import Run, RunStatus, SourceStatus
-from app.data.repositories import DiscoveryRepo, JobData, JobRepo, normalize
-from app.discovery.errors import DiscoveryError
+from app.data.repositories import DiscoveryRepo, JobData, JobRepo, ResumeRepo, normalize
+from app.discovery.errors import DiscoveryError, NoActiveResumeError
 from app.discovery.reports import log_rejected
+from app.discovery.seed import prefill_filters
 from app.discovery.source_adapter import (
     SOURCE_FETCH_LIMIT,
     SourceAdapter,
     SourceJob,
     SourceQuery,
 )
+
+
+def enqueue_run(filters: Mapping[str, object] | None = None) -> int:
+    """Create a QUEUED run for the active resume; seed filters when none given."""
+    resume = ResumeRepo().get_active()
+
+    if resume is None:
+        raise NoActiveResumeError("no active resume: select or import one before running discovery")
+
+    return DiscoveryRepo().create(
+        resume.id, dict(filters if filters is not None else prefill_filters())
+    )
 
 
 def run_discovery(run_id: int, sources: Sequence[SourceAdapter]) -> None:

@@ -8,6 +8,7 @@ from app.discovery.captcha import CAPTCHA_SEAM_VERSION, CaptchaSolver
 from app.discovery.errors import (
     DiscoveryError,
     FilterError,
+    NoActiveResumeError,
     SourceConfigError,
     SourceError,
     SourceVersionError,
@@ -28,8 +29,14 @@ from app.discovery.seed import (
     seed_from_sections,
     seniority_band,
 )
-from app.discovery.services.discovery_service import run_discovery
+from app.discovery.services.discovery_service import enqueue_run, run_discovery
 from app.discovery.services.job_service import list_jobs
+from app.discovery.services.worker import (
+    MAX_DATA_AGE,
+    DiscoveryWorker,
+    bootstrap_if_stale,
+    recover_stale,
+)
 from app.discovery.source_adapter import (
     SOURCE_FETCH_LIMIT,
     SOURCE_SEAM_VERSION,
@@ -44,8 +51,11 @@ __all__ = [
     "CaptchaSolver",
     "DatePosted",
     "DiscoveryError",
+    "DiscoveryWorker",
     "EmploymentType",
     "FilterError",
+    "MAX_DATA_AGE",
+    "NoActiveResumeError",
     "SENIORITY_BANDS",
     "SKILL_ALIASES",
     "SOURCE_FETCH_LIMIT",
@@ -58,12 +68,15 @@ __all__ = [
     "SourceQuery",
     "SourceVersionError",
     "WorkArrangement",
+    "bootstrap_if_stale",
+    "enqueue_run",
     "list_jobs",
     "load_captcha",
     "load_filters",
     "load_sources",
     "parse_filters",
     "prefill_filters",
+    "recover_stale",
     "run_discovery",
     "save_filters",
     "seed_filters",

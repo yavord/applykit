@@ -1,17 +1,31 @@
 """FastAPI app entry: error mapping, API routers, static SPA mount."""
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.discovery import FilterError
+from app.discovery import DiscoveryWorker, FilterError
 from app.resumes import ExtractionError, UnsupportedFormatError
 from app.resumes.errors import ResumeError
 from app.web.router import api_router
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start the discovery worker with the app; stop it on shutdown."""
+    worker = DiscoveryWorker()
+    worker.start()
+    app.state.worker = worker
+    try:
+        yield
+    finally:
+        worker.stop()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(api_router)
 
