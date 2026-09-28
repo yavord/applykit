@@ -10,10 +10,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
+from datetime import datetime
 
-from app.data.models import Run, RunStatus, SourceStatus
+from app.data.models import Run, RunStatus, SourceState, SourceStatus
 from app.data.repositories import DiscoveryRepo, JobData, JobRepo, ResumeRepo, normalize
-from app.discovery.errors import DiscoveryError, NoActiveResumeError
+from app.discovery.errors import DiscoveryError, NoActiveResumeError, RunNotFoundError
+from app.discovery.registry import configured_source_names
 from app.discovery.reports import log_rejected
 from app.discovery.seed import prefill_filters
 from app.discovery.source_adapter import (
@@ -24,16 +26,34 @@ from app.discovery.source_adapter import (
 )
 
 
-def enqueue_run(filters: Mapping[str, object] | None = None) -> int:
+def enqueue_run(
+    filters: Mapping[str, object] | None = None, sources: Sequence[str] | None = None
+) -> int:
     """Create a QUEUED run for the active resume; seed filters when none given."""
     resume = ResumeRepo().get_active()
 
     if resume is None:
         raise NoActiveResumeError("no active resume: select or import one before running discovery")
 
+    scope = list(sources) if sources is not None else configured_source_names()
+
     return DiscoveryRepo().create(
-        resume.id, dict(filters if filters is not None else prefill_filters())
+        resume.id, dict(filters if filters is not None else prefill_filters()), scope
     )
+
+
+_SOURCE_MISSING = "source not installed"
+
+
+def _scope(run: Run, sources: Sequence[SourceAdapter]) -> list[tuple[str, SourceAdapter | None]]:
+    """Snapshot order; a snapshotted source that is no longer installed stays
+    in the list with a None adapter (recorded as an ERROR state) so config
+    drift cannot silently shrink a run's scope. An empty snapshot (legacy
+    rows, or nothing configured at enqueue) means every loaded adapter."""
+    by_name = {adapter.name: adapter for adapter in sources}
+    names = list(run.sources) or [adapter.name for adapter in sources]
+
+    return [(name, by_name.get(name)) for name in names]
 
 
 def run_discovery(run_id: int, sources: Sequence[SourceAdapter]) -> None:
@@ -41,7 +61,8 @@ def run_discovery(run_id: int, sources: Sequence[SourceAdapter]) -> None:
 
     Marks the run COMPLETED even when sources fail: per-source failures are
     isolated (D6). The worker (3.5) owns the RUNNING claim and marks FAILED when
-    an exception escapes this function.
+    an exception escapes this function. Sources execute in the order the run
+    snapshotted at enqueue, not the loader's order.
     """
     runs = DiscoveryRepo()
     run = runs.get(run_id)
@@ -49,7 +70,11 @@ def run_discovery(run_id: int, sources: Sequence[SourceAdapter]) -> None:
     if run is None:
         raise ValueError(f"no run with id {run_id}")
 
-    for adapter in sources:
+    for name, adapter in _scope(run, sources):
+        if adapter is None:
+            runs.set_source_state(run_id, name, SourceStatus.ERROR, message=_SOURCE_MISSING)
+            continue
+
         _run_source(runs, run, adapter)
 
     runs.set_status(run_id, RunStatus.COMPLETED)
@@ -136,3 +161,28 @@ def _skip_message(rejected: Sequence[tuple[SourceJob, str]]) -> str | None:
     reasons = "; ".join(dict.fromkeys(reason for _, reason in rejected))
 
     return f"skipped {len(rejected)} invalid record(s): {reasons}"
+
+
+def get_run(run_id: int) -> tuple[Run, list[SourceState]]:
+    """Run row plus its per-source states; 404 when the id is unknown."""
+    runs = DiscoveryRepo()
+    run = runs.get(run_id)
+
+    if run is None:
+        raise RunNotFoundError(f"no discovery run with id {run_id}")
+
+    return run, runs.source_states(run_id)
+
+
+def latest_run() -> tuple[Run, list[SourceState]] | None:
+    """Newest run plus its states, or None when nothing ever ran."""
+    run = DiscoveryRepo().latest()
+
+    return None if run is None else (run, DiscoveryRepo().source_states(run.id))
+
+
+def last_run_at() -> datetime | None:
+    """Timestamp of the newest run: finished_at, else its started_at."""
+    run = DiscoveryRepo().latest()
+
+    return None if run is None else (run.finished_at or run.started_at)

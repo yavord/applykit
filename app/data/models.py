@@ -78,6 +78,7 @@ class AttemptStatus(StrEnum):
 
 # Settings keys (settings table). profile_version is the fit-staleness key.
 KEY_DISCOVERY_FILTERS = "discovery_filters"
+KEY_DISCOVERY_SOURCES = "discovery_sources"
 KEY_PROFILE_VERSION = "profile_version"
 
 # Contract 22: persisted filter block, empty/absent value = no restriction.
@@ -265,6 +266,7 @@ class Run(Base):
     resume_rev: Mapped[int] = mapped_column(Integer)  # resume.revision snapshot at start
     status: Mapped[str] = mapped_column(String)  # one of RunStatus
     filters: Mapped[dict] = mapped_column(JSON)
+    sources: Mapped[list] = mapped_column(JSON, default=list)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
     message: Mapped[str | None] = mapped_column(String)  # failure reason; null while ok

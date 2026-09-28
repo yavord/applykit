@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.discovery import DiscoveryWorker, FilterError
+from app.discovery import DiscoveryError, DiscoveryWorker
 from app.resumes import ExtractionError, UnsupportedFormatError
 from app.resumes.errors import ResumeError
 from app.web.router import api_router
@@ -30,8 +30,8 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(api_router)
 
 
-@app.exception_handler(FilterError)
-async def filter_error_handler(request, exc: FilterError) -> JSONResponse:
+@app.exception_handler(DiscoveryError)
+async def discovery_error_handler(request, exc: DiscoveryError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
 
 

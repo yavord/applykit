@@ -9,6 +9,7 @@ from app.discovery.errors import (
     DiscoveryError,
     FilterError,
     NoActiveResumeError,
+    RunNotFoundError,
     SourceConfigError,
     SourceError,
     SourceVersionError,
@@ -21,7 +22,7 @@ from app.discovery.filters import (
     save_filters,
     to_query,
 )
-from app.discovery.registry import load_captcha, load_sources
+from app.discovery.registry import configured_source_names, load_captcha, load_sources
 from app.discovery.seed import (
     SENIORITY_BANDS,
     prefill_filters,
@@ -56,6 +57,7 @@ __all__ = [
     "FilterError",
     "MAX_DATA_AGE",
     "NoActiveResumeError",
+    "RunNotFoundError",
     "SENIORITY_BANDS",
     "SKILL_ALIASES",
     "SOURCE_FETCH_LIMIT",
@@ -69,6 +71,7 @@ __all__ = [
     "SourceVersionError",
     "WorkArrangement",
     "bootstrap_if_stale",
+    "configured_source_names",
     "enqueue_run",
     "list_jobs",
     "load_captcha",

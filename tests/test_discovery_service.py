@@ -20,11 +20,11 @@ def run_id():
     resumes = ResumeRepo()
     resume = resumes.create("Main")
     resumes.set_active(resume.id)
-    return DiscoveryRepo().create(resume.id, {"title": "engineer"})
+    return DiscoveryRepo().create(resume.id, {"title": "engineer"}, ["fake", "good", "bad"])
 
 
 def states(run_id) -> dict:
-    return {s.source: s for s in DiscoveryRepo().sources(run_id)}
+    return {s.source: s for s in DiscoveryRepo().source_states(run_id)}
 
 
 def job_count(session) -> int:
@@ -75,7 +75,7 @@ def test_repeat_run_is_all_duplicates(run_id, session):
     run_discovery(run_id, [FakeAdapter(name="good", jobs=[FAKE_JOB])])
 
     resume_id = DiscoveryRepo().get(run_id).resume_id
-    second = DiscoveryRepo().create(resume_id, {"title": "engineer"})
+    second = DiscoveryRepo().create(resume_id, {"title": "engineer"}, ["good"])
     run_discovery(second, [FakeAdapter(name="good", jobs=[FAKE_JOB])])
 
     assert job_count(session) == 1

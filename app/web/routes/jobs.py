@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request
 
 from app.discovery.filters import parse_filters
 from app.discovery.seed import prefill_filters
+from app.discovery.services.discovery_service import last_run_at
 from app.discovery.services.job_service import list_jobs
 from app.web.schemas import JobListOut, JobsSettingsOut, job_out
 
@@ -25,5 +26,5 @@ def list_jobs_route(request: Request) -> JobListOut:
 
 @router.get("/settings", response_model=JobsSettingsOut)
 def jobs_settings_route() -> JobsSettingsOut:
-    """Filter prefill: persisted block when present, else seeds from the active resume."""
-    return JobsSettingsOut(filters=prefill_filters())
+    """Filter prefill (persisted block or seeds) plus the newest run's timestamp."""
+    return JobsSettingsOut(filters=prefill_filters(), last_run_at=last_run_at())

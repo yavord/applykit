@@ -62,7 +62,7 @@ def test_run_once_executes_queued_run(monkeypatch, active_resume, session):
     run = DiscoveryRepo().get(rid)
     assert run.status == RunStatus.COMPLETED
 
-    states = DiscoveryRepo().sources(rid)
+    states = DiscoveryRepo().source_states(rid)
     assert [(s.source, s.status) for s in states] == [("fake", SourceStatus.OK)]
     assert job_count(session) == 1
 
@@ -100,11 +100,38 @@ def test_missing_seam_marks_run_failed(active_resume):
     assert "no job source installed" in run.message
 
 
+def test_worker_honors_run_sources(monkeypatch, active_resume, session):
+    install_entries(
+        monkeypatch,
+        stub_source("a", lambda: FakeAdapter(name="a", jobs=[FAKE_JOB])),
+        stub_source("b", lambda: FakeAdapter(name="b", jobs=[FAKE_JOB])),
+    )
+    worker = DiscoveryWorker(poll_interval=0.01)
+
+    rid = enqueue_run(sources=["b"])
+    assert worker.run_once() is True
+
+    assert [(s.source, s.status) for s in DiscoveryRepo().source_states(rid)] == [
+        ("b", SourceStatus.OK)
+    ]
+    assert job_count(session) == 1
+
+    ghost = enqueue_run(sources=["ghost"])
+    assert worker.run_once() is True
+
+    run = DiscoveryRepo().get(ghost)
+    assert run.status == RunStatus.COMPLETED
+    state = DiscoveryRepo().source_states(ghost)[0]
+    assert state.source == "ghost"
+    assert state.status == SourceStatus.ERROR
+    assert state.message == "source not installed"
+
+
 def test_recover_stale(active_resume):
     runs = DiscoveryRepo()
 
     def running_run(started_at) -> int:
-        rid = runs.create(active_resume.id, {})
+        rid = runs.create(active_resume.id, {}, [])
         with SessionLocal() as s:
             s.execute(
                 update(Run)
@@ -140,7 +167,7 @@ def test_bootstrap_enqueues_when_stale(active_resume):
 
 def test_bootstrap_skips_fresh(active_resume):
     runs = DiscoveryRepo()
-    rid = runs.create(active_resume.id, {})
+    rid = runs.create(active_resume.id, {}, [])
     runs.set_status(rid, RunStatus.COMPLETED, finished_at=utcnow() - timedelta(hours=1))
     runs.set_source_state(rid, "fake", SourceStatus.OK)
 

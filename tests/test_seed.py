@@ -194,11 +194,11 @@ def test_settings_route(client):
     resp = client.get("/api/jobs/settings")
 
     assert resp.status_code == 200
-    assert resp.json() == {"filters": expected}
+    assert resp.json() == {"filters": expected, "last_run_at": None}
 
     block = save_filters({"title": "custom"})
 
     resp = client.get("/api/jobs/settings")
 
     assert resp.status_code == 200
-    assert resp.json() == {"filters": block}
+    assert resp.json() == {"filters": block, "last_run_at": None}

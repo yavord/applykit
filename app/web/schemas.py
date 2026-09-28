@@ -88,6 +88,65 @@ class JobsSettingsOut(BaseModel):
     """Jobs filter prefill; the filter block is a plain dict (as in the jobs list)."""
 
     filters: dict
+    last_run_at: datetime | None
+
+
+class DiscoveryRunIn(BaseModel):
+    """Submitted filters; omitted body = use the persisted block/seeds."""
+
+    filters: dict | None = None
+
+
+class SourceStateOut(BaseModel):
+    source: str
+    status: str
+    message: str | None
+    new_count: int
+    duplicate_count: int
+
+
+class RunOut(BaseModel):
+    """A run plus aggregates; every field the UI must show is present (D3)."""
+
+    id: int
+    status: str
+    resume_id: int
+    resume_rev: int
+    filters: dict
+    sources: list[str]
+    started_at: datetime
+    finished_at: datetime | None
+    message: str | None
+    new_count: int
+    duplicate_count: int
+    source_states: list[SourceStateOut]
+
+
+def run_out(run, states) -> RunOut:
+    """Run ORM row + source states -> API model; counts are summed across sources."""
+    return RunOut(
+        id=run.id,
+        status=run.status,
+        resume_id=run.resume_id,
+        resume_rev=run.resume_rev,
+        filters=run.filters,
+        sources=list(run.sources),
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        message=run.message,
+        new_count=sum(s.new_count for s in states),
+        duplicate_count=sum(s.duplicate_count for s in states),
+        source_states=[
+            SourceStateOut(
+                source=s.source,
+                status=s.status,
+                message=s.message,
+                new_count=s.new_count,
+                duplicate_count=s.duplicate_count,
+            )
+            for s in states
+        ],
+    )
 
 
 def job_out(job) -> JobOut:

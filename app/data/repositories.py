@@ -609,7 +609,7 @@ def _execute_upsert(s: Session, stmt) -> int:
 
 
 class DiscoveryRepo:
-    def create(self, resume_id: int, filters: dict) -> int:
+    def create(self, resume_id: int, filters: dict, sources: Sequence[str]) -> int:
         with SessionLocal() as s:
             resume = s.get(Resume, resume_id)
 
@@ -621,6 +621,7 @@ class DiscoveryRepo:
                 filters=filters,
                 resume_id=resume_id,
                 resume_rev=resume.revision,
+                sources=list(sources),
             )
 
             s.add(run)
@@ -736,7 +737,12 @@ class DiscoveryRepo:
         with SessionLocal() as s:
             return s.get(Run, run_id)
 
-    def sources(self, run_id: int) -> list[SourceState]:
+    def latest(self) -> Run | None:
+        """Newest run by id, or None when nothing ever ran."""
+        with SessionLocal() as s:
+            return s.scalar(select(Run).order_by(Run.id.desc()).limit(1))
+
+    def source_states(self, run_id: int) -> list[SourceState]:
         with SessionLocal() as s:
             return list(
                 s.scalars(

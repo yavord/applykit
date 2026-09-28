@@ -4,6 +4,8 @@
 class DiscoveryError(Exception):
     """Base for discovery failures that surface to the user."""
 
+    status_code = 500  # overridden per subclass
+
 
 class SourceError(DiscoveryError):
     """A source could not return records (network, API, malformed payload)."""
@@ -27,3 +29,9 @@ class NoActiveResumeError(DiscoveryError):
     """A run needs an active resume snapshot; 409."""
 
     status_code = 409
+
+
+class RunNotFoundError(DiscoveryError):
+    """Unknown discovery run id; 404."""
+
+    status_code = 404

@@ -4,7 +4,8 @@ from importlib.metadata import EntryPoint
 
 import pytest
 
-from app.data.repositories import JobData
+from app.data.models import KEY_DISCOVERY_SOURCES
+from app.data.repositories import JobData, SettingsRepo
 from app.discovery import (
     CAPTCHA_SEAM_VERSION,
     SOURCE_SEAM_VERSION,
@@ -14,6 +15,7 @@ from app.discovery import (
     SourceJob,
     SourceQuery,
     SourceVersionError,
+    configured_source_names,
     load_captcha,
     load_sources,
     registry,
@@ -204,3 +206,38 @@ def test_source_job_preserves_nulls():
 def test_source_job_fields_are_storable_columns():
     for field_name in SourceJob.__dataclass_fields__:
         assert field_name in JobData.__dataclass_fields__
+
+
+def test_configured_source_names_unset_uses_installed_order(monkeypatch):
+    install_entries(
+        monkeypatch,
+        stub_source("b", lambda: FakeAdapter(name="b")),
+        stub_source("a", lambda: FakeAdapter(name="a")),
+    )
+
+    assert configured_source_names() == ["a", "b"]
+
+
+def test_configured_source_names_setting_wins(monkeypatch):
+    install_entries(
+        monkeypatch,
+        stub_source("a", lambda: FakeAdapter(name="a")),
+        stub_source("b", lambda: FakeAdapter(name="b")),
+    )
+    SettingsRepo().set(KEY_DISCOVERY_SOURCES, '["b"]')
+
+    assert configured_source_names() == ["b"]
+
+
+@pytest.mark.parametrize("raw", ['"x"', "{"])
+def test_configured_source_names_malformed_setting_ignored(monkeypatch, raw):
+    install_entries(monkeypatch, stub_source("a", lambda: FakeAdapter(name="a")))
+    SettingsRepo().set(KEY_DISCOVERY_SOURCES, raw)
+
+    assert configured_source_names() == ["a"]
+
+
+def test_configured_source_names_no_sources_is_empty(monkeypatch):
+    install_entries(monkeypatch)
+
+    assert configured_source_names() == []

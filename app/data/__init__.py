@@ -7,6 +7,7 @@ from app.data.db import db_url
 from app.data.models import (
     DEFAULT_FILTERS,
     KEY_DISCOVERY_FILTERS,
+    KEY_DISCOVERY_SOURCES,
     KEY_PROFILE_VERSION,
     Application,
     AttemptStatus,
@@ -37,6 +38,7 @@ __all__ = [
     "FitScore",
     "Job",
     "KEY_DISCOVERY_FILTERS",
+    "KEY_DISCOVERY_SOURCES",
     "KEY_PROFILE_VERSION",
     "Profile",
     "Resume",

@@ -7,8 +7,11 @@ An installed package registers:
 
 from __future__ import annotations
 
+import json
 from importlib.metadata import EntryPoint, entry_points
 
+from app.data.models import KEY_DISCOVERY_SOURCES
+from app.data.repositories import SettingsRepo
 from app.discovery.captcha import CAPTCHA_SEAM_VERSION, CaptchaSolver
 from app.discovery.errors import SourceConfigError, SourceVersionError
 from app.discovery.source_adapter import SOURCE_SEAM_VERSION, SourceAdapter
@@ -55,6 +58,42 @@ def _check_version(ep: EntryPoint, version: object, expected: int) -> None:
             f"entry point '{ep.name}' ({ep.group}) targets seam version {version!r}; "
             f"this app expects {expected}"
         )
+
+
+def _setting_names() -> list[str] | None:
+    """`discovery_sources` setting as names; None when unset or malformed."""
+    raw = SettingsRepo().get(KEY_DISCOVERY_SOURCES)
+
+    if raw is None:
+        return None
+
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return None
+
+    if not isinstance(value, list) or not all(isinstance(n, str) for n in value):
+        return None
+
+    return value
+
+
+def configured_source_names() -> list[str]:
+    """Names a new run fetches, in resolution order; never raises.
+
+    Explicit `discovery_sources` wins; otherwise every installed adapter in
+    entry-point order. [] when nothing resolves — the worker then surfaces the
+    seam config error as a FAILED run, not an HTTP 500.
+    """
+    wanted = _setting_names()
+
+    if wanted is not None:
+        return wanted
+
+    try:
+        return [adapter.name for adapter in load_sources()]
+    except SourceConfigError:
+        return []
 
 
 def load_sources() -> list[SourceAdapter]:
