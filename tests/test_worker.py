@@ -89,7 +89,8 @@ def test_service_exception_marks_failed_and_worker_survives(active_resume):
     assert worker.run_once() is False
 
 
-def test_missing_seam_marks_run_failed(active_resume):
+def test_missing_seam_marks_run_failed(monkeypatch, active_resume):
+    install_entries(monkeypatch)
     worker = DiscoveryWorker(run_fn=run_discovery)
     rid = enqueue_run()
 
